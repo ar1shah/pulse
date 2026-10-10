@@ -6,7 +6,7 @@ Update this when a phase changes or a prompt finishes. What to do is in docs/PLA
 >
 > - **Ari:** SD card decided (a new card, being flashed with Raspberry Pi Imager). ARI-1 is done (on `main`).
 >   Next: Phase 2 boot + SSH as soon as the card is ready.
-> - **Alex:** ALEX-1 (C1001 parser, reader, dump tool).
+> - **Alex:** ALEX-1 (done: C1001 parser, reader, dump tool, tests on `main`).
 > - **EE:** Phase 1 checklist (inventory, photos, pin labels, cable connectors, power supply).
 
 **Deadlines:** Devpost final Sun Oct 11 10:00 AM, commits stop 11:00 AM, repo public at submission.
@@ -174,3 +174,19 @@ into docs/hardware.md too.
   missing port.
 - A1 for CS2: `LiveSource` calls `C1001Reader(port, baud=115200)`, `.start()`, `.stop()`, `.latest(now)`. No edits to
   `sources.py` needed; once `C1001Reader` exists in `sensors/c1001.py` it gets picked up.
+- ALEX-1: `pi/pulse/sensors/c1001.py` implements pure `C1001Parser` (feed byte chunks, resyncs on `53 59`, checks
+  checksum `sum(...) & 0xFF` and tail `54 43`, counts `good` / `bad` / `skipped_bytes`; `feed_with_raw` returns raw
+  bytes for recordings), command builders (`cmd_set_work_mode(0x02)` -> `53 59 02 08 00 01 02 B9 54 43`,
+  `cmd_query_sleep_composite` -> `53 59 84 8D 00 01 0F CD 54 43`), contract sanity filtering (`sanitize_breath`,
+  `sanitize_heart`), and `C1001Reader(port, baud=115200)` (daemon thread, requests sleep mode on connect, polls sleep
+  composite vitals every 0.5 s, status ok / warming when connected without vitals / stale / offline, reconnects every
+  2 s, never raises).
+- ALEX-1: `tools/c1001_dump.py PORT [--baud] [--no-init] [--record FILE.jsonl]`: live presence, movement, breathing
+  rate, heart rate, frames/s, good/bad/skipped, last frame age, JSONL logging.
+- ALEX-1: 134 tests pass (`tests/test_c1001.py` added with 17 tests: work mode bytes matching library line 44, query
+  sleep composite bytes matching line 324, checksum verification matching lines 799/929, composite frame parsing,
+  movement and still handling, contract sanity filtering for breath and heart, checksum failures, bad tail, split
+  chunks across reads, garbage before and between frames, multiple frames in one chunk, discrete query frames, reader
+  offline / warming / ok / stale statuses with FakeSerial, reader reconnects on error, LiveSource integration).
+- ALEX-1: Updated `docs/hardware.md` C1001 protocol section with confirmed wire protocol, command words, checksum
+  formula, and links to official DFRobot library lines.

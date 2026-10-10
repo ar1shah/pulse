@@ -114,21 +114,44 @@ The sensor also has Bluetooth; Hi-Link's HLKRadarTool phone app can view targets
 References: [ESPHome LD2450](https://new.esphome.io/components/sensor/ld2450),
 [RBEGamer/HLK-LD2450](https://github.com/RBEGamer/HLK-LD2450), [espboards LD2450](https://www.espboards.dev/sensors/ld2450/).
 
-## C1001 protocol (hints only; DFRobot_HumanDetection source is the truth)
+## C1001 protocol (confirmed from DFRobot_HumanDetection source)
 
-- Official driver: Arduino library **DFRobot_HumanDetection** (GitHub, DFRobot org). Port it.
-- Vitals only in sleep/vitals work mode; the library has a call to set the work mode.
-- Vitals need the chest facing the sensor at 0.4 to 1.5 m, person fairly still. Expect a settle delay.
-- Ranges: breathing 10 to 25 /min, heart 60 to 100 bpm. Presence detection to about 11 m.
-- Frame format is believed to be: header `53 59`, control word, command word, 2-byte length,
-  data, 1-byte checksum (sum of preceding bytes & 0xFF), tail `54 43`. **Confirm from the library.**
-- Fill in the real control/command words here after porting, with links to the library lines.
+- Driver ported from Arduino library [DFRobot_HumanDetection](https://github.com/DFRobot/DFRobot_HumanDetection) (`DFRobot_HumanDetection.h`, `.cpp`).
+- The library **polls** the sensor via `getData()` by sending query frames (`data = 0x0F`) and receiving responses.
+- Must be configured to **Sleep Mode** (`0x02`) on init; fall detection mode does not report vitals.
+- Vitals need the chest facing the sensor at 0.4 to 1.5 m, person fairly still.
+- Sanity ranges (Rule 9): breathing 10 to 25 /min, heart 60 to 100 bpm; 0 or out-of-range values become `None`.
 
-References: [DFRobot SEN0623 wiki](https://wiki.dfrobot.com/SKU_SEN0623_C1001_mmWave_Human_Detection_Sensor),
-[how2electronics C1001 + ESP32](https://how2electronics.com/esp32-c10).
+### Frame format
 
-Fallback if the port stalls: flash DFRobot's Arduino example onto an ESP32, print JSON over USB serial,
-read that on the Pi.
+Every command and response follows:
+
+```
+53 59 | con (1 B) | cmd (1 B) | len_H len_L (BE16) | data (len B) | checksum (1 B) | 54 43
+```
+
+- Header: `53 59` (`'SY'`), Tail: `54 43` (`'TC'`). Total frame length is `9 + len` bytes.
+- Checksum: `sum(bytes[0 : 6+len]) & 0xFF` (sum of all preceding bytes modulo 256; confirmed in [DFRobot_HumanDetection.cpp:799, 929-935](https://github.com/DFRobot/DFRobot_HumanDetection/blob/master/DFRobot_HumanDetection.cpp#L799)).
+
+### Confirmed control and command words
+
+- **Set Sleep Mode:** `con = 0x02`, `cmd = 0x08`, `data = [0x02]`, checksum `0xB9` -> `53 59 02 08 00 01 02 B9 54 43` ([DFRobot_HumanDetection.cpp:44](https://github.com/DFRobot/DFRobot_HumanDetection/blob/master/DFRobot_HumanDetection.cpp#L44)). Modes: `0x01` Fall detection, `0x02` Sleep/vitals mode ([DFRobot_HumanDetection.h:100-101](https://github.com/DFRobot/DFRobot_HumanDetection/blob/master/DFRobot_HumanDetection.h#L100)).
+- **Query Mode:** `con = 0x02`, `cmd = 0xA8`, `data = [0x0F]` ([DFRobot_HumanDetection.cpp:46](https://github.com/DFRobot/DFRobot_HumanDetection/blob/master/DFRobot_HumanDetection.cpp#L46)).
+- **Query Sleep Composite (`sSleepComposite`):** `con = 0x84`, `cmd = 0x8D`, `data = [0x0F]`, checksum `0xCD` -> `53 59 84 8D 00 01 0F CD 54 43` ([DFRobot_HumanDetection.cpp:324](https://github.com/DFRobot/DFRobot_HumanDetection/blob/master/DFRobot_HumanDetection.cpp#L324)).
+  Response payload (8 bytes): `[presence, sleepState, avgRespiration, avgHeartbeat, turnover, largeBodyMove, minorBodyMove, apneaEvents]` ([DFRobot_HumanDetection.h:60-71](https://github.com/DFRobot/DFRobot_HumanDetection/blob/master/DFRobot_HumanDetection.h#L60), [DFRobot_HumanDetection.cpp:314-327](https://github.com/DFRobot/DFRobot_HumanDetection/blob/master/DFRobot_HumanDetection.cpp#L314)).
+- **Query Human Presence:** `con = 0x80`, `cmd = 0x81` (0 = none, 1 = present; [DFRobot_HumanDetection.cpp:143](https://github.com/DFRobot/DFRobot_HumanDetection/blob/master/DFRobot_HumanDetection.cpp#L143)).
+- **Query Movement:** `con = 0x80`, `cmd = 0x82` (0 = none, 1 = still, 2 = moving; [DFRobot_HumanDetection.cpp:149](https://github.com/DFRobot/DFRobot_HumanDetection/blob/master/DFRobot_HumanDetection.cpp#L149)).
+- **Query Respiration Value:** `con = 0x81`, `cmd = 0x82` ([DFRobot_HumanDetection.cpp:198](https://github.com/DFRobot/DFRobot_HumanDetection/blob/master/DFRobot_HumanDetection.cpp#L198)).
+- **Query Heart Rate:** `con = 0x85`, `cmd = 0x82` ([DFRobot_HumanDetection.cpp:176](https://github.com/DFRobot/DFRobot_HumanDetection/blob/master/DFRobot_HumanDetection.cpp#L176)).
+
+### Code and tools
+
+- Code: `pi/pulse/sensors/c1001.py` implements pure `C1001Parser` (feed byte chunks, resync on `53 59`, verifies checksum and tail), command builders, contract sanity filters, and `C1001Reader(port, baud=115200)` (daemon thread, polls composite vitals, status ok / warming when connected without vitals / stale / offline, reconnects every 2 s, never raises).
+- Dump tool: `.venv/bin/python tools/c1001_dump.py /dev/ttyAMA3 [--record recordings/c1001_session1.jsonl]`.
+
+References: [DFRobot SEN0623 wiki](https://wiki.dfrobot.com/SKU_SEN0623_C1001_mmWave_Human_Detection_Sensor), [how2electronics C1001 + ESP32](https://how2electronics.com/esp32-c10).
+
+Fallback if hardware UART issues arise: flash DFRobot's Arduino example onto an ESP32, print JSON over USB serial, read that on the Pi.
 
 ## Power
 
