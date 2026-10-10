@@ -1,1 +1,235 @@
-/* Handheld radar styles (filled in by T3). */
+/* Handheld radar styles. Designed for exactly 800x480 (Hosyond 7" DSI), judged from about 1 m away.
+   Every color lives here; radar.js reads these custom properties once at startup. */
+
+@font-face {
+  font-family: "Rajdhani";
+  font-weight: 600;
+  font-display: block;
+  src: url("fonts/Rajdhani-SemiBold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Rajdhani";
+  font-weight: 700;
+  font-display: block;
+  src: url("fonts/Rajdhani-Bold.ttf") format("truetype");
+}
+
+:root {
+  --bg: #030806;
+  --panel: rgba(3, 10, 7, 0.78);
+  --fg: #c9ffdc;            /* bright text */
+  --dim: #8cc8a3;           /* secondary text, ring labels */
+  --grid: #1e6a3c;          /* rings, ticks */
+  --grid-hi: #2fae60;       /* outer arc, sector edges */
+  --cone: #5cff98;          /* lock cone wedge (drawn faint) */
+  --sweep: #7dffae;
+  --sector-in: rgba(46, 170, 98, 0.20);   /* sector fill, apex to arc */
+  --sector-out: rgba(20, 96, 54, 0.05);
+  --box: rgba(2, 8, 5, 0.84);              /* backing for the trace box */
+  --gate-dim: rgba(0, 0, 0, 0.6);          /* outside the angle gate */
+  --triage-green: #54ff8c;  /* moving */
+  --triage-amber: #ffb62e;  /* still, breathing */
+  --triage-gray: #9aaba1;   /* not assessed */
+  --danger: #ff5a48;
+  --font: "Rajdhani", "DejaVu Sans Condensed", "Arial Narrow", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: var(--fg);
+  font-family: var(--font);
+  font-weight: 600;
+  /* kiosk: no cursor, no selection, no long-press menu, no pinch or pan */
+  cursor: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+* { cursor: none !important; }
+
+#stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 800px;
+  height: 480px;
+  margin: -240px 0 0 -400px;   /* centered; radar.js adds a scale() to fit other window sizes */
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 100%, #07170f 0%, var(--bg) 70%);
+}
+
+#radar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 800px;
+  height: 480px;
+  display: block;
+}
+
+/* static scanlines + vignette, composited once */
+#scan {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.45) 100%),
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.16) 2px 3px);
+}
+
+/* ---- status bar ---- */
+#bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 800px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  background: rgba(2, 8, 5, 0.92);
+  border-bottom: 1px solid var(--grid);
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.wordmark {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 5px;
+  color: var(--triage-green);
+  text-shadow: 0 0 8px rgba(84, 255, 140, 0.55);
+  margin-right: 4px;
+}
+.badge {
+  padding: 3px 8px;
+  border: 2px solid var(--triage-gray);
+  border-radius: 3px;
+  font-weight: 700;
+  color: var(--triage-gray);
+}
+.badge[data-source="live"] { background: var(--triage-green); border-color: var(--triage-green); color: #02100a; }
+.badge[data-source="sim"] { border-color: var(--triage-amber); color: var(--triage-amber); }
+.badge[data-source="replay"] { border-color: var(--triage-gray); color: var(--triage-gray); }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); }
+.pill b { font-weight: 700; color: var(--fg); }
+.pill i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+.pill[data-status="ok"] i, .pill[data-status="sim"] i { background: var(--triage-green); box-shadow: 0 0 6px var(--triage-green); }
+.pill[data-status="warming"] i, .pill[data-status="stale"] i { background: var(--triage-amber); box-shadow: 0 0 6px var(--triage-amber); }
+.pill[data-status="offline"] i { background: var(--danger); }
+.pill[data-status="offline"] b { color: var(--danger); }
+.pill[data-status="warming"] b, .pill[data-status="stale"] b { color: var(--triage-amber); }
+
+.spacer { flex: 1; }
+.contacts { color: var(--dim); }
+.contacts b { font-weight: 700; color: var(--fg); font-size: 22px; }
+.clock { width: 84px; text-align: right; color: var(--dim); font-variant-numeric: tabular-nums; }
+
+/* ---- bottom corner panels (the triangles the 120 deg sector leaves empty) ---- */
+#vitals, #legend {
+  position: absolute;
+  bottom: 0;
+  width: 232px;
+  height: 150px;
+  background: linear-gradient(to top, var(--panel), rgba(3, 10, 7, 0.55));
+}
+/* clip along the sector edge so nothing overlaps the radar */
+#vitals {
+  left: 0;
+  clip-path: polygon(0 0, 150px 0, 232px 44px, 232px 100%, 0 100%);
+  padding: 4px 0 0 10px;
+}
+#legend {
+  right: 0;
+  clip-path: polygon(232px 0, 82px 0, 0 44px, 0 100%, 232px 100%);
+  padding: 44px 10px 0 16px;
+  font-size: 20px;
+  line-height: 1.05;
+  letter-spacing: 0.5px;
+}
+
+#vitals .v-live, #vitals .v-idle { display: none; }
+#vitals[data-state="idle"] .v-idle { display: block; }
+#vitals[data-state="locked"] .v-live { display: block; }
+
+.v-title { font-size: 40px; font-weight: 700; color: var(--triage-gray); margin-top: 34px; letter-spacing: 2px; line-height: 1; }
+.v-hint { font-size: 22px; color: var(--fg); margin-top: 8px; line-height: 1.05; }
+
+.v-head { font-size: 19px; color: var(--dim); letter-spacing: 1.5px; height: 24px; line-height: 24px; }
+.v-head b { color: var(--fg); font-weight: 700; }
+.v-row { display: flex; align-items: center; height: 58px; }
+.v-num {
+  display: inline-block;
+  width: 108px;
+  font-size: 58px;
+  font-weight: 700;
+  line-height: 58px;
+  color: var(--triage-amber);
+  text-shadow: 0 0 10px rgba(255, 182, 46, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+.v-num.settling {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--triage-gray);
+  text-shadow: none;
+}
+.v-num.beat { color: #fff1cc; text-shadow: 0 0 16px rgba(255, 182, 46, 0.9); }
+.v-unit { font-size: 17px; line-height: 1; color: var(--dim); letter-spacing: 1.5px; }
+
+/* ---- legend ---- */
+.lg { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 7px; color: var(--fg); }
+.lg em { font-style: normal; color: var(--triage-amber); }
+.dot { flex: none; width: 14px; height: 14px; margin-top: 3px; border-radius: 50%; }
+.dot.green { background: var(--triage-green); box-shadow: 0 0 8px var(--triage-green); }
+.dot.amber { background: var(--triage-amber); box-shadow: 0 0 8px var(--triage-amber); }
+.dot.gray { background: var(--triage-gray); }
+
+/* ---- NO SIGNAL ---- */
+#nosignal {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 4, 3, 0.9);
+}
+#nosignal.show { display: flex; }
+.ns-title {
+  font-size: 96px;
+  font-weight: 700;
+  letter-spacing: 8px;
+  color: var(--danger);
+  text-shadow: 0 0 18px rgba(255, 90, 72, 0.5);
+  animation: ns-blink 1.6s ease-in-out infinite;
+}
+.ns-sub { margin-top: 6px; font-size: 28px; color: var(--dim); letter-spacing: 2px; }
+@keyframes ns-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+#fps {
+  position: absolute;
+  right: 6px;
+  top: 40px;
+  font-size: 16px;
+  color: var(--dim);
+}

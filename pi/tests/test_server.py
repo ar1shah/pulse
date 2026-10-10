@@ -82,6 +82,15 @@ def test_pages(client):
     assert client.get("/command").status_code in (200, 404)
 
 
+def test_radar_ui_assets_are_served_and_need_no_network(client):
+    page = client.get("/").text
+    assert 'id="radar"' in page and "radar.js" in page and "style.css" in page
+    for path in ("/radar.js", "/style.css", "/fonts/Rajdhani-SemiBold.ttf", "/fonts/Rajdhani-Bold.ttf"):
+        assert client.get(path).status_code == 200, path
+    for text in (page, client.get("/radar.js").text, client.get("/style.css").text):
+        assert "http://" not in text and "https://" not in text    # no CDNs, no external requests
+
+
 def test_live_and_replay_are_offline_stubs():
     for name in ("live", "replay"):
         src = make_source(name)
