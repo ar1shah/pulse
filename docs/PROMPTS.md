@@ -24,7 +24,7 @@ Everything below works on a laptop with fake data.
 - **Data contract in code:** `pi/pulse/state.py` + `ui/contract.js`, with tests that keep them matched.
 - **Server + sim mode:** FastAPI on :8000, WebSocket `/ws` at 10 Hz, `/api/snapshot`, `/debug` page. Sim scenarios
   `demo` (one sitter behind the wall + a walker) and `random`. Basic fusion (tracking, lock cone, triage, contacts).
-  Data sources plug in through `pi/pulse/sources.py`; `live` and `replay` are still stubs.
+  Data sources plug in through `pi/pulse/sources.py`; `live` was wired up in A1, `replay` is still a stub.
 - **Radar UI:** flat dark 800x480 radar, sweep, dots by triage, held dots fade, vitals panel, NO SIGNAL overlay.
 - **Interactions:** tap a dot for its card (range, bearing, status, vitals or "get within 1.5 m"), contacts drawer,
   2 / 4 / 6 m range buttons, hold the PULSE wordmark to reset.
@@ -49,12 +49,12 @@ http://localhost:8000 (or `/debug`). Tests: `cd pi && ../.venv/bin/pytest -q`.
 | Who | Does |
 | --- | --- |
 | EE | [Manual] BRINGUP Phase 1: inventory, photos, pin labels, cable connectors, pick the power supply |
-| Ari | [Manual] Decide the SD card (BRINGUP Phase 1). [Claude Code] start **A1** in a worktree, let it run |
+| Ari | [Manual] SD card: decided, a new card flashed fresh. [Claude Code] **A1**: done, on `main` |
 | CS2 | [Claude Code] start **B1**, let it run |
 
 The parser prompts need no hardware. They run in the background through Phases 2 and 3.
 
-### A1. LD2450 parser, reader, dump tool [Claude Code, Ari, worktree `ld2450`]
+### A1. LD2450 parser, reader, dump tool [Claude Code, Ari] (done, on `main`)
 
 ```
 Read CLAUDE.md, docs/hardware.md (LD2450 section), pi/pulse/sources.py and pi/pulse/sensors/ld2450.py.
@@ -132,7 +132,7 @@ lines you ported. Run all tests, update docs/STATUS.md, commit.
 
 ### Ari: SD card + SSH [Manual]
 
-Only if you're flashing a new card (the loaner's card isn't ours):
+We're using a new card, flashed fresh (decided in Phase 1):
 1. On the Mac, open Raspberry Pi Imager. Device: **Raspberry Pi 4**. OS: **Raspberry Pi OS (64-bit)**, the
    desktop one (not Lite). Storage: the SD card.
 2. Edit settings: hostname `pulse`; username `pulse` + a password; Wi-Fi SSID/password; country US; time zone
@@ -142,7 +142,7 @@ Only if you're flashing a new card (the loaner's card isn't ours):
      and every laptop that needs to SSH in.
 3. Write, put the card in the Pi, boot (first boot takes a few minutes).
 
-Then, either way:
+Then:
 ```bash
 ssh-keygen -R pulse.local        # clears the old Pi's fingerprint; avoids "REMOTE HOST IDENTIFICATION HAS CHANGED"
 ssh pulse@pulse.local            # should log in without a password
@@ -192,7 +192,7 @@ Write the UART3 device into docs/hardware.md and .env.example (C1001_PORT), tick
 update docs/STATUS.md, commit.
 ```
 
-**Before Phase 4:** Ari merges A1 (`git merge ld2450`), CS2 pushes B1, Ari pulls and runs
+**Before Phase 4:** A1 is already on `main`. CS2 pushes B1, Ari pulls and runs
 `scripts/deploy.sh` so the Pi has both readers and both dump tools.
 
 ---
@@ -214,8 +214,8 @@ The LD2450 is wired per docs/hardware.md and EE confirmed its TX idles at 3.3 V.
 sudo systemctl stop pulse, then from ~/pulse run .venv/bin/python tools/ld2450_dump.py /dev/ttyAMA0 --multi.
 Walk me through docs/BRINGUP.md
 Phase 4 LD2450 items one at a time: straight ahead at 1 m, step to MY left, walk toward the sensor, 3 people, max
-range, left/right edges, behind the panel, sitting still for 30 s. From what you see, confirm or flip the X and
-speed sign constants so output matches the contract (negative x = holder's left, negative speed = approaching),
+range, left/right edges, behind the panel, sitting still for 30 s. From what you see, confirm or flip X_SIGN and
+SPEED_SIGN in pi/pulse/sensors/ld2450.py so output matches the contract (negative x = holder's left, negative speed = approaching),
 and fix the parser if anything disagrees with the datasheet. Record 2 minutes to recordings/ld2450_session1.jsonl
 on the Pi, copy it to the Mac, and commit a 20-second slice as recordings/sample_ld2450.jsonl. Write every measured
 value into docs/hardware.md and BRINGUP.md, update docs/STATUS.md, commit.

@@ -84,6 +84,9 @@ PI_HOST=pulse@pulse.local scripts/deploy.sh
 
 # Pi logs
 PI_HOST=pulse@pulse.local scripts/pi_logs.sh
+
+# LD2450 live view on the Pi (sudo systemctl stop pulse first; it owns the port)
+.venv/bin/python tools/ld2450_dump.py /dev/ttyAMA0 --multi
 ```
 
 ## Rules
@@ -110,7 +113,8 @@ PI_HOST=pulse@pulse.local scripts/pi_logs.sh
 
 ## Gotchas
 
-- LD2450 values use a sign bit: top bit SET means POSITIVE, magnitude is the low 15 bits.
+- LD2450 values use a sign bit: top bit SET means POSITIVE, magnitude is the low 15 bits. Which way is the
+  holder's left and which way is approaching is set by `X_SIGN` / `SPEED_SIGN` in `sensors/ld2450.py`, nowhere else.
 - 256000 baud needs the PL011 UART (`dtoverlay=disable-bt`), not the mini UART.
 - Pi GPIO is 3.3 V only.
 - The LD2450 is built for moving people; a still person can drop out. Fusion holds tracks for 3 s and

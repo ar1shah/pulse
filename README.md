@@ -14,6 +14,12 @@ cd pi && PULSE_SOURCE=sim SIM_SCENARIO=demo python -m pulse.main
 # open http://localhost:8000
 ```
 
+## On the Pi
+
+`PULSE_SOURCE=live` reads the LD2450 on `LD2450_PORT` (default `/dev/ttyAMA0`) and the C1001 on `C1001_PORT`
+(see `.env.example`). A sensor that isn't connected shows as offline; the app keeps running.
+`tools/ld2450_dump.py PORT --multi` shows raw LD2450 targets, frame rate and bad frames, and can `--record` a session.
+
 ## Docs
 
 - `CLAUDE.md`: project context and rules (read by Claude Code every session)

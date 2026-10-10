@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from pulse.main import create_app
 from pulse.sensors.sim import SimSource
-from pulse.sources import StubSource, make_source
+from pulse.sources import LiveSource, StubSource, make_source
 from pulse.state import validate_snapshot
 
 
@@ -92,10 +92,10 @@ def test_radar_ui_assets_are_served_and_need_no_network(client):
         assert "http://" not in text and "https://" not in text    # no CDNs, no external requests
 
 
-def test_live_and_replay_are_offline_stubs():
-    for name in ("live", "replay"):
-        src = make_source(name)
-        assert isinstance(src, StubSource) and src.name == name
+def test_live_without_sensors_and_replay_stub_are_offline():
+    for src in (LiveSource(ld2450_port="/nonexistent/ld2450", c1001_port=""), make_source("replay")):
+        name = src.name
+        assert name == "live" or isinstance(src, StubSource)
         with TestClient(create_app(src)) as c:
             d = c.get("/api/snapshot").json()
         assert validate_snapshot(d) == []

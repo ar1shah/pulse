@@ -8,7 +8,7 @@
 | Hosyond 7" DSI capacitive touchscreen, 800x480 | Connected via DSI ribbon. May also take 5 V from a GPIO pin. |
 | HLK-LD2450, 24 GHz | Tracking radar. 5 V supply, 3.3 V UART. 256000 baud. |
 | DFRobot C1001 (SEN0623), 60 GHz | Vitals radar. 5 V, max 100 mA, 3.3 V UART. 115200 baud. |
-| microSD, jumpers, breadboard | Own stock / senior design lab. |
+| microSD, jumpers, breadboard | New microSD, flashed fresh with Raspberry Pi Imager (not the loaner's card). Jumpers and breadboard from the senior design lab. |
 | Power bank, 5 V at 3 A | For handheld. Bench: use a proper 5 V 3 A supply. |
 
 ## Pi access
@@ -74,9 +74,15 @@ Each target, 4 little-endian uint16 values:
 
 All 8 bytes zero = empty slot. Decode: `v = raw & 0x7FFF; v = v if raw & 0x8000 else -v`.
 
+Datasheet example (used as a test vector): `AA FF 03 00 0E 03 B1 86 10 00 40 01` + 16 zero bytes + `55 CC` is one
+target at x -782 mm, y 1713 mm, speed -16 cm/s, resolution 320 mm.
+
 Conventions to confirm empirically on Saturday:
 - X sign vs the holder's left/right (contract wants negative = left).
 - Speed sign vs approaching/receding (contract wants negative = approaching).
+
+Both are one constant each at the top of `pi/pulse/sensors/ld2450.py`: `X_SIGN` and `SPEED_SIGN` (both `+1` until the
+live test). Decoded values are multiplied by them, so a flip is a one-character change.
 
 Config commands (frames start `FD FC FB FA`, end `04 03 02 01`, little-endian length then command word).
 Hints, verify against the datasheet:
@@ -84,6 +90,24 @@ Hints, verify against the datasheet:
 - Multi-target tracking: `FD FC FB FA 02 00 90 00 04 03 02 01`
 - Single-target tracking: `FD FC FB FA 02 00 80 00 04 03 02 01`
 - End config: `FD FC FB FA 02 00 FE 00 04 03 02 01`
+- ACK (assumed, verify): same header/tail, length, command word with `0x0100` set (e.g. `FF 01`), LE16 status
+  (0 = success), then any data. The enable-config ACK carries protocol version and buffer size.
+
+The length field counts the command word plus its value. `ld2450.command_frame()` builds these, `parse_ack()` reads
+the replies; the parser picks ACKs out of the data stream so they never count as bad frames.
+
+Code (A1): `pi/pulse/sensors/ld2450.py` has the pure `Ld2450Parser` (feed any byte chunks, resyncs on the header,
+checks the tail, counts good/bad frames), the command builders, and `Ld2450Reader` (pyserial 8N1 in a daemon thread,
+sends enable config + multi-target + end config on connect, status ok / stale after 1 s without a frame / offline,
+reconnects every 2 s). `PULSE_SOURCE=live` reads it from env `LD2450_PORT` (default `/dev/ttyAMA0`).
+
+Dump tool, from the repo root on the Pi (stop the service first, it owns the port):
+`.venv/bin/python tools/ld2450_dump.py /dev/ttyAMA0 --multi [--record recordings/ld2450_session1.jsonl]`.
+Each recorded line is `{"t", "raw" (30-byte frame as hex), "targets" (parsed)}`; replay should parse `raw`, since
+`targets` bakes in whatever sign constants were set at the time.
+
+A macOS pseudo-terminal can't be set to 256000 baud (`Inappropriate ioctl`), so a fake-serial test on the Mac has
+to use `--baud 115200`. Real UARTs and CP2102-style USB adapters take 256000.
 
 The sensor also has Bluetooth; Hi-Link's HLKRadarTool phone app can view targets and switch modes.
 

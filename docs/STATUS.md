@@ -8,8 +8,9 @@ T5 to T9 and S1 to S7 were folded into the phases: T5 is A1, T6 is B1, T8 + T9 a
 T7 + S4 are A4, S3 is B3, S6 is B4, S5 is A5, S7 is the optional buzzer in Phase 7.
 
 ## Next up
-Phase 1: EE does BRINGUP Phase 1 (inventory, photos, pin labels, connectors). Ari decides the SD card and starts
-A1 in the `ld2450` worktree. CS2 starts B1.
+Phase 1 to 2: EE finishes BRINGUP Phase 1 (inventory, photos, pin labels, connectors). CS2 finishes B1. Ari: a new SD
+card is being flashed with Raspberry Pi Imager (hostname `pulse`, user `pulse`, SSH key, hotspot Wi-Fi); then boot,
+`ssh-keygen -R pulse.local`, `ssh pulse@pulse.local`, and A2.
 
 ## Phase 0. Done (T0 to T4)
 - [x] T0 repo created, pushed, teammates added, SSH key on Pi
@@ -20,19 +21,19 @@ A1 in the `ld2450` worktree. CS2 starts B1.
 
 ## Phase 1. Unbox + start the parsers
 - [ ] EE (manual): inventory, photos, pin labels, cable connectors, power supply
-- [ ] Ari (manual): SD card decision
-- [ ] A1 LD2450 parser, reader, LiveSource, dump tool (Ari, worktree `ld2450`)
+- [x] Ari (manual): SD card decision: a new card, flashed fresh (not the loaner's)
+- [x] A1 LD2450 parser, reader, LiveSource, dump tool (Ari, committed on `main`)
 - [ ] B1 C1001 parser, reader, dump tool (CS2)
 
 ## Phase 2. Pi + screen boot
 - [ ] EE (manual): screen on the DISPLAY port, screen power pins recorded, Pi boots to the desktop, touch works
-- [ ] Ari (manual): SD card flashed or moved, `ssh pulse@pulse.local` from the Mac with no password
+- [ ] Ari (manual): new SD card flashed (in progress), `ssh pulse@pulse.local` from the Mac with no password
 - [ ] CS2 (manual): `ssh-copy-id pulse@pulse.local` from CS2's laptop
 
 ## Phase 3. Pi setup + serial ports
 - [ ] A2 Pi setup, kiosk, deploy, both UART loopbacks, UART3 device recorded (Ari)
 - [ ] EE (manual): loopback jumpers on and off, Pi 5 V pins measured
-- [ ] Ari (manual): A1 merged, B1 pulled, `scripts/deploy.sh` run
+- [ ] Ari (manual): B1 pulled (A1 is already on `main`), `scripts/deploy.sh` run
 
 ## Phase 4. Sensors live
 - [ ] EE (manual): power-only check, both sensor TX idle at about 3.3 V, then data wires
@@ -159,3 +160,29 @@ from PROMPTS.md and hardware.md; add any BRINGUP.md asks to record that are miss
   Not tried on the real 7" DSI touch panel: Chromium kiosk touch + `touch-action: none` + the scrolling drawer need a
   check on the Pi in T8/T9 (does a finger drag scroll the drawer list, do taps register at the screen edges).
 - T4: 93 tests pass (`test_server.py` now also checks the four new JS files are served with no external URLs).
+- A1: `pi/pulse/sensors/ld2450.py` now has `Ld2450Parser` (pure, incremental: feed any chunks, resyncs on
+  `AA FF 03 00`, checks `55 CC`, counts `good` / `bad` / `skipped_bytes`; `feed_with_raw` also returns each frame's
+  30 bytes for recordings), command builders + `parse_ack` (bytes marked "verify against datasheet"; ACKs in the data
+  stream are collected in `parser.acks`, never counted as bad), and `Ld2450Reader(port, baud=256000)`.
+- A1: sign conventions are `X_SIGN` and `SPEED_SIGN` at the top of `ld2450.py`, both `+1` until A3's live test.
+  The datasheet's example frame (x -782, y 1713, speed -16) is a test vector. A slot with all 8 bytes zero, or x = y = 0,
+  is skipped. y is not clamped (fusion already drops y < 0).
+- A1: reader status: `offline` when the port isn't open, `stale` when open but no frame for > 1 s (including no frame
+  yet), else `ok`. When stale it still returns the last frame; fusion only ingests a frame whose `t` is new, so a
+  repeat adds nothing. Frames are stamped with `time.time()` on arrival. Sends enable config, multi-target, end config
+  on every (re)connect and logs the ACKs. Retry is every 2 s; only the first failed open is a warning.
+- A1: `LiveSource` (in `sources.py`): LD2450 on env `LD2450_PORT` (default `/dev/ttyAMA0`), C1001 on env `C1001_PORT`.
+  The C1001 side is offline when `C1001_PORT` is empty, when `from .sensors.c1001 import C1001Reader` fails, or when
+  the reader raises; it is built in `start()`, not at `make_source` time. `PULSE_SOURCE=live` now uses it; replay is
+  still `StubSource`. On a Mac with no sensors, live mode serves with both sensors offline (checked by hand).
+- A1: `tools/ld2450_dump.py PORT [--baud] [--multi] [--record FILE.jsonl]`: table of x, y, range, angle (L/R), speed,
+  resolution; frames/s over the last second; good/bad/skipped; ACKs; current sign constants; summary on Ctrl-C.
+  Without `--multi` it only listens. Checked end to end over a pseudo-terminal at 115200 (macOS ptys reject 256000:
+  `Inappropriate ioctl`; real UARTs and USB adapters are fine): 20 frames in, 20 recorded, 0 bad, ACK decoded.
+- A1: 117 tests pass (`test_ld2450.py` added: datasheet frame, 3 targets, negative x, empty slots, split chunks,
+  garbage before the header, bad tail, header inside a truncated frame, two frames in one chunk, sign flips, command
+  bytes, ACKs mixed into the stream, reader ok/stale/offline/retry/reconnect with a fake serial port, LiveSource with
+  `C1001Reader` missing, unset, present and raising). `test_server.py`'s live check now runs a real `LiveSource` on a
+  missing port.
+- A1 for CS2: `LiveSource` calls `C1001Reader(port, baud=115200)`, `.start()`, `.stop()`, `.latest(now)`. No edits to
+  `sources.py` needed; once `C1001Reader` exists in `sensors/c1001.py` it gets picked up.

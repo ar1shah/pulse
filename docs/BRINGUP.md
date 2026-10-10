@@ -16,8 +16,8 @@ Owner tags: **[EE]**, **[Ari]**, **[CS2]**, **[All]**. Fill in every blank; the 
 - [ ] [EE] Photo every part on the table (Devpost gallery)
 - [ ] [EE] Pin labels on each sensor. LD2450 order: ______ C1001 order: ______
 - [ ] [EE] Sensor cable connectors: do lab female jumpers fit? If not, plan: ______
-- [ ] [Ari] SD card decision: loaner card is ours (move it) / not ours (flash new)
-- [ ] [Ari] A1 started in worktree `ld2450`
+- [x] [Ari] SD card decision: **new card, flashed fresh** with Raspberry Pi Imager (the loaner card is not used)
+- [x] [Ari] A1 done (committed straight to `main`, no worktree)
 - [ ] [CS2] B1 started
 - [ ] **Sync:** parts accounted for, both parser sessions running
 
@@ -25,7 +25,7 @@ Owner tags: **[EE]**, **[Ari]**, **[CS2]**, **[All]**. Fill in every blank; the 
 
 - [ ] [EE] Ribbon in the DISPLAY port (not CAMERA), both latches closed
 - [ ] [EE] Screen power wires on GPIO pins (if any): 5 V pin ______ GND pin ______
-- [ ] [Ari] SD card flashed (64-bit desktop, hostname `pulse`, user `pulse`, SSH key, hotspot Wi-Fi) or moved
+- [ ] [Ari] New SD card flashed (64-bit desktop, hostname `pulse`, user `pulse`, SSH key, hotspot Wi-Fi). In progress
 - [ ] [EE] Pi boots, desktop shows on the 7" screen
 - [ ] [EE] Tap the screen, including the corners: touch registers
 - [ ] [Ari] `ssh pulse@pulse.local` works from the Mac with no password
@@ -45,7 +45,7 @@ Owner tags: **[EE]**, **[Ari]**, **[CS2]**, **[All]**. Fill in every blank; the 
 - [ ] [Ari] UART3 device name: ______ ; loopback at 115200: pass
 - [ ] [EE] Pi off. Jumpers removed
 - [ ] [EE] Multimeter: Pi 5 V pins read ______ V
-- [ ] [Ari] A1 merged, B1 pushed, `scripts/deploy.sh` run so the Pi has both readers and dump tools
+- [ ] [Ari] A1 on `main` (done), B1 pushed, `scripts/deploy.sh` run so the Pi has both readers and dump tools
 - [ ] **Sync:** both serial ports proven, Pi boots into the radar, both readers deployed
 
 If a loopback fails, it's the Pi config, not a sensor. Fix it before Phase 4.
