@@ -30,8 +30,7 @@ html, body {
   color: var(--text);
   font-family: var(--font);
   font-weight: 500;
-  /* kiosk: no cursor, no selection, no long-press menu, no pinch or pan */
-  cursor: none;
+  /* kiosk: no selection, no long-press menu, no pinch or pan (the cursor is hidden below, touch screens only) */
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
@@ -39,7 +38,10 @@ html, body {
   touch-action: none;
   overscroll-behavior: none;
 }
-* { cursor: none !important; }
+/* hide the cursor only where the primary input is touch (the Pi's panel); a laptop mouse keeps its pointer */
+@media (pointer: coarse) {
+  * { cursor: none !important; }
+}
 
 #stage {
   position: absolute;
