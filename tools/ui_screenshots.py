@@ -88,7 +88,7 @@ def main() -> int:
     def shot(page, name):
         path = out / f"{args.prefix}-{name}.png"
         page.screenshot(path=str(path))
-        print("  saved", path.relative_to(ROOT))
+        print("  saved", path.relative_to(ROOT) if path.is_relative_to(ROOT) else path)
 
     def new_page(browser):
         ctx = browser.new_context(viewport={"width": 800, "height": 480}, device_scale_factor=1)

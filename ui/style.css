@@ -15,6 +15,7 @@
   --triage-amber: #e0a030;             /* still, breathing */
   --triage-gray: #8a9690;              /* not assessed */
   --danger: #d9604f;
+  --panel: #0f1513;                    /* opaque side panels */
   --font: system-ui, -apple-system, "Segoe UI", "DejaVu Sans", "Helvetica Neue", Arial, sans-serif;
 }
 
@@ -90,6 +91,7 @@ html, body {
   line-height: 1;
   color: var(--dim);
   white-space: nowrap;
+  pointer-events: none;                /* taps fall through to the radar; buttons opt back in */
 }
 .wordmark { font-weight: 600; letter-spacing: 2px; color: var(--text); }
 .badge { font-weight: 600; letter-spacing: 1px; color: var(--triage-gray); }
@@ -110,7 +112,9 @@ html, body {
   left: 16px;
   bottom: 14px;
   width: 170px;
+  pointer-events: none;
 }
+#stage[data-card-vitals="1"] #vitals { display: none; }   /* the card shows the same numbers */
 #vitals .v-live, #vitals .v-idle { display: none; }
 #vitals[data-state="idle"] .v-idle { display: block; }
 #vitals[data-state="locked"] .v-live { display: block; }
@@ -141,6 +145,7 @@ html, body {
   font-size: 12px;
   line-height: 1;
   color: var(--dim);
+  pointer-events: none;
 }
 .lg { display: flex; align-items: center; gap: 7px; margin-top: 7px; }
 .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
@@ -163,3 +168,196 @@ html, body {
 .ns-sub { margin-top: 8px; font-size: 16px; color: var(--dim); }
 
 #fps { position: absolute; right: 8px; top: 28px; font-size: 12px; color: var(--dim); }
+
+/* ---- touch controls ---- */
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: auto;
+}
+
+/* status-bar buttons: a small visible face with an invisible 48 px+ hit area around it */
+.wordmark, .chip { position: relative; height: 20px; }
+/* the face sits at the very top of the screen, so the hit area grows downward: 48 px tall in total */
+.wordmark::after, .chip::after { content: ""; position: absolute; inset: -2px -10px -26px; }
+/* inset is measured from the padding box, so the chip's 1 px border needs 1 px more */
+.chip::after { inset: -3px -11px -27px; }
+.wordmark { font-size: 13px; line-height: 20px; }
+.wordmark .hold {
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  height: 2px;
+  width: 0;
+  background: var(--sweep);
+}
+.wordmark.holding .hold { width: 100%; transition: width 1500ms linear; }
+
+.chip {
+  margin-left: auto;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text);
+}
+.chip b { font-weight: 600; color: var(--sweep); }
+.chip:active { background: var(--ring); }
+
+/* range buttons: top right, outside the wedge */
+#ranges {
+  position: absolute;
+  right: 8px;
+  top: 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.range {
+  width: 58px;
+  height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+.range[aria-pressed="true"] { background: var(--sweep); border-color: var(--sweep); color: #07120b; }
+.range:active { filter: brightness(1.35); }
+
+/* shared close button */
+.x { width: 48px; height: 48px; font-size: 32px; line-height: 48px; color: var(--dim); }
+.x:active { color: var(--text); }
+
+/* ---- contact card (side panel, away from its dot) ---- */
+#card {
+  position: absolute;
+  top: 50px;
+  bottom: 0;
+  width: 260px;
+  display: none;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+#card[data-open="1"] { display: flex; }
+#card[data-side="left"] { left: 0; border-left: 0; }
+#card[data-side="right"] { right: 0; border-right: 0; }
+
+.c-head { display: flex; align-items: center; justify-content: space-between; height: 48px; padding-left: 14px; }
+.c-title { font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+.c-lost {
+  display: none;
+  margin: 0 14px 4px;
+  padding: 6px 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--danger);
+  border-top: 1px solid var(--danger);
+  border-bottom: 1px solid var(--danger);
+}
+.c-lost small { display: block; margin-top: 2px; font-size: 13px; font-weight: 500; letter-spacing: 0; color: var(--dim); }
+#card[data-lost="1"] .c-lost { display: block; }
+#card[data-lost="1"] .c-body { opacity: 0.7; }
+/* a lost contact has no live guidance and no live vitals: only its last known position */
+#card[data-lost="1"][data-mode] .c-live, #card[data-lost="1"][data-mode] .c-free { display: none; }
+.c-body { padding: 0 14px; }
+
+.c-big { display: flex; align-items: baseline; gap: 12px; }
+.c-big b { font-size: 38px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.c-big span { font-size: 22px; font-weight: 600; color: var(--text); }
+
+.c-rows { margin: 10px 0 0; }
+.c-rows > div { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--ring); }
+.c-rows dt { font-size: 12px; letter-spacing: 1px; color: var(--dim); }
+.c-rows dd { margin: 0; font-size: 17px; font-weight: 700; }
+[data-triage="green"] { color: var(--triage-green); }
+[data-triage="amber"] { color: var(--triage-amber); }
+[data-triage="gray"] { color: var(--text); }
+.c-held { min-height: 20px; margin-top: 4px; font-size: 13px; color: var(--dim); }
+
+.c-live, .c-free { display: none; margin-top: 6px; }
+#card[data-mode="locked"] .c-live { display: block; }
+#card[data-mode="free"] .c-free { display: block; }
+.c-vital { display: flex; align-items: center; gap: 10px; height: 78px; }
+.c-num { min-width: 96px; font-size: 64px; font-weight: 700; line-height: 78px; font-variant-numeric: tabular-nums; }
+.c-num.amber { color: var(--triage-amber); }
+.c-num.settling { font-size: 18px; font-weight: 500; color: var(--dim); }
+.c-unit { font-size: 13px; line-height: 1.2; color: var(--dim); }
+
+.c-aim { display: flex; align-items: center; gap: 12px; }
+.c-arrow { flex: none; width: 64px; height: 64px; fill: var(--text); }
+.c-dist { font-size: 22px; font-weight: 700; line-height: 1.15; }
+.c-turn { margin-top: 3px; font-size: 14px; line-height: 1.2; color: var(--dim); }
+.c-guide { margin-top: 10px; font-size: 16px; line-height: 1.3; color: var(--text); text-wrap: balance; }
+
+/* ---- contacts drawer ---- */
+#drawer {
+  position: absolute;
+  top: 50px;
+  right: 0;
+  bottom: 0;
+  width: 340px;
+  display: none;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-right: 0;
+}
+#drawer[data-open="1"] { display: flex; }
+.d-head { display: flex; align-items: center; justify-content: space-between; height: 48px; padding-left: 14px; flex: none; }
+.d-title { font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+.d-empty { display: none; padding: 20px 14px; font-size: 16px; color: var(--dim); }
+.d-empty[data-show="1"] { display: block; }
+.d-list {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  touch-action: pan-y;             /* html is touch-action: none; the list scrolls with a finger */
+  overscroll-behavior: contain;
+}
+.d-list li[hidden] { display: none; }
+.d-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 6px 14px;
+  border-top: 1px solid var(--ring);
+  text-align: left;
+}
+.d-row:active { background: var(--ring); }
+.d-row:disabled { opacity: 0.6; }
+.d-id { flex: none; width: 44px; font-size: 24px; font-weight: 700; }
+.d-mid { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.d-status { font-size: 14px; font-weight: 700; letter-spacing: 0.5px; }
+.d-vitals { font-size: 13px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.d-seen { flex: none; font-size: 13px; color: var(--dim); text-align: right; }
+
+/* ---- toast ---- */
+#toast {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: none;
+  padding: 10px 18px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+#toast[data-show="1"] { display: block; }

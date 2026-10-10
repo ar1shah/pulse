@@ -4,14 +4,14 @@ Update this at the end of every task: tick the box, add a one-line note, keep "N
 Task ids match docs/PROMPTS.md.
 
 ## Next up
-- T4 tap-a-dot card, contacts drawer, range buttons. T5/T6 (sensor lane) can run in a second worktree.
+- T5/T6 (sensor lane: LD2450 and C1001 parsers + dump tools), T7 fusion hardening. T5/T6 can run in a second worktree.
 
 ## Friday night
 - [x] T0 repo created, pushed, teammates added, SSH key on Pi
 - [x] T1 scaffold + data contract in code
 - [x] T2 server + sim mode + minimal fusion
 - [x] T3 radar UI
-- [ ] T4 tap-a-dot card, contacts drawer, range buttons
+- [x] T4 tap-a-dot card, contacts drawer, range buttons
 - [ ] T5 LD2450 parser + dump/record tool + UART loopback tool
 - [ ] T6 C1001 parser (port of DFRobot library) + dump tool
 - [ ] T7 fusion hardening
@@ -87,3 +87,26 @@ Task ids match docs/PROMPTS.md.
 - T3: type is now smaller than CLAUDE.md's "judged from about 1 m: big type, high contrast" gotcha assumes (numbers
   40 px, labels 12 to 13 px). Decide on the Pi at 1 m whether to bump the vitals numbers back up.
 - T3: 93 tests pass.
+- T4: new modules `ui/fmt.js` (text helpers), `card.js` (selection + card), `drawer.js`, `controls.js` (range buttons,
+  wordmark long-press); `radar.js` owns the socket (`send`), hit-tests taps and draws the selection brackets.
+  No contract change, no `v` bump: selection is UI-only. Screenshots in `docs/screenshots/t4-*.png`, made by
+  `.venv/bin/python tools/ui_t4_shots.py` (real demo sim, real touch taps, a DOM check per shot, non-zero exit on a
+  failed check or page error).
+- T4: card is a 260 px side panel on the side away from its dot (swaps with a 370 to 430 px dead band if the dot
+  crosses the middle), so the selected dot and the lock zone stay visible. Tap = nearest dot within 48 px. It shows
+  range, bearing (`12 deg L`), MOVING/STILL, status word, time since first seen; locked: 64 px heart and breath
+  (`settling...` on null); not locked: arrow + "Get within 1.5 m and aim at them" + live `m to go` / `Turn N deg` line.
+- T4: the card follows the track id AND that contact's `first_seen`. If the id vanishes from `targets`, or comes back
+  with a different `first_seen` (id reuse, or someone pressed reset), it reads SIGNAL LOST for 3 s and closes. A lost
+  card shows only the last known position, never stale guidance or vitals.
+- T4: drawer is the server's `contacts` list, newest first; a row is tappable only if it is the newest entry for its id
+  and that id is in `targets` (T2's rule), others are dimmed "N s ago". Opening the drawer closes the card.
+- T4: range buttons send `set_gate {max_range_m}` only (the angle gate is left alone) and highlight from
+  `snapshot.gate`, so a gate changed from /debug lights the right button (or none, for e.g. 3 m).
+- T4: reset = hold the PULSE wordmark 1.5 s (underline fills, toast "Contacts cleared"); lifting early does nothing.
+  Status-bar buttons are small to look at but have a 48 px tall hit area that grows downward from the top edge.
+- T4: things to know: a held track reads STILL with "Not detected for N s" (fusion's rule, see T2 notes); the toast sits
+  over the device apex on purpose (nothing can be there); `tools/ui_screenshots.py` now prints paths outside the repo.
+  Not tried on the real 7" DSI touch panel: Chromium kiosk touch + `touch-action: none` + the scrolling drawer need a
+  check on the Pi in T8/T9 (does a finger drag scroll the drawer list, do taps register at the screen edges).
+- T4: 93 tests pass (`test_server.py` now also checks the four new JS files are served with no external URLs).

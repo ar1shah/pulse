@@ -85,9 +85,10 @@ def test_pages(client):
 def test_radar_ui_assets_are_served_and_need_no_network(client):
     page = client.get("/").text
     assert 'id="radar"' in page and "radar.js" in page and "style.css" in page
-    for path in ("/radar.js", "/style.css", "/contract.js"):
+    assets = ("/radar.js", "/style.css", "/contract.js", "/fmt.js", "/card.js", "/drawer.js", "/controls.js")
+    for path in assets:
         assert client.get(path).status_code == 200, path
-    for text in (page, client.get("/radar.js").text, client.get("/style.css").text):
+    for text in [page] + [client.get(path).text for path in assets]:
         assert "http://" not in text and "https://" not in text    # no CDNs, no external requests
 
 

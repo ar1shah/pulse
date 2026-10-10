@@ -2,6 +2,10 @@
 // Nothing in frame() allocates: colors are resolved once and the tracks are preallocated.
 // Layout and colors live in style.css (read once at startup); enums and the lock cone come from contract.js.
 import { CONTRACT_VERSION, TRIAGE, TRIAGE_LABELS, TARGET_IDS, LOCK_CONE, DEFAULT_GATE, HOLD_S } from "./contract.js";
+import { setText, setAttr, setVital } from "./fmt.js";
+import { initCard, cardUpdate, selectTarget, clearSelection, selectedId } from "./card.js";
+import { initDrawer, drawerUpdate, drawerOpen, closeDrawer } from "./drawer.js";
+import { initControls, controlsUpdate } from "./controls.js";
 
 const W = 800;
 const H = 480;
@@ -18,6 +22,8 @@ const HELD_FLOOR = 0.3;             // held dots never fade below this (still su
 const HELD_FLOOR_LOCKED = 0.7;
 const DOT_R = 8;
 const LOCK_R = 15;
+const SEL_R = 22;                   // selection brackets
+const HIT_R = 48;                   // tap hit radius (stage px); the nearest dot inside it wins
 const WATCHDOG_MS = 2000;           // no snapshot for this long = NO SIGNAL
 const CONNECT_TIMEOUT_MS = 3000;
 const BACKOFF_MS = [500, 1000, 2000, 4000, 5000];
@@ -54,6 +60,8 @@ const C = {
 // index: 0 green (moving), 1 amber (still, breathing), 2 gray (not assessed)
 const TRIAGE_COLORS = [cssVar("--triage-green"), cssVar("--triage-amber"), cssVar("--triage-gray")];
 const FONT = "500 12px " + cssVar("--font");
+const LABEL_FONT = "600 15px " + cssVar("--font");
+const ID_LABELS = TARGET_IDS.map(String);
 
 // legend copy comes from the contract so it cannot drift
 for (const el of document.querySelectorAll("#legend [data-triage]")) {
@@ -168,23 +176,6 @@ function rebuildGrid() {
 
 // ---- snapshots -> state ----
 
-function setText(el, text) {
-  if (el.textContent !== text) el.textContent = text;
-}
-function setAttr(el, name, value) {
-  if (el.getAttribute(name) !== value) el.setAttribute(name, value);
-}
-function setVital(el, value, amber) {
-  if (value === null) {
-    setText(el, "settling...");
-    el.classList.add("settling");
-  } else {
-    setText(el, String(value));
-    el.classList.remove("settling");
-  }
-  el.classList.toggle("amber", amber && value !== null);
-}
-
 function applySnapshot(s, now) {
   if (s.v !== CONTRACT_VERSION) console.warn("snapshot v" + s.v + ", UI built for v" + CONTRACT_VERSION);
 
@@ -252,6 +243,11 @@ function applySnapshot(s, now) {
   setText(pillLdText, s.sensors.ld2450);
   setAttr(pillC1, "data-status", s.sensors.c1001);
   setText(pillC1Text, s.sensors.c1001);
+
+  // interactions: card, drawer, range buttons (all read the snapshot; selection never leaves the UI)
+  cardUpdate(s);
+  drawerUpdate(s);
+  controlsUpdate(s);
 }
 
 // ---- connection ----
@@ -265,6 +261,10 @@ let lastMsgAt = 0;
 function showNoSignal(on, sub) {
   elNoSignal.classList.toggle("show", on);
   if (sub) setText(elNoSignalSub, sub);
+}
+
+function send(msg) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
 }
 
 function detach() {
@@ -330,6 +330,8 @@ let fpsEl = null;
 let fpsFrames = 0;
 let fpsSince = 0;
 
+let selId = 0;                      // set once per frame from the card
+
 function drawTrack(tr, ts) {
   // alpha + leaving
   let alpha = 1;
@@ -374,6 +376,23 @@ function drawTrack(tr, ts) {
     ctx.arc(sx, sy, LOCK_R, 0, Math.PI * 2);
     ctx.stroke();
   }
+  if (tr.id === selId) {            // the contact the card is showing: corner brackets + its number
+    const r = SEL_R;
+    const k = 7;
+    ctx.strokeStyle = C.text;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sx - r, sy - r + k); ctx.lineTo(sx - r, sy - r); ctx.lineTo(sx - r + k, sy - r);
+    ctx.moveTo(sx + r - k, sy - r); ctx.lineTo(sx + r, sy - r); ctx.lineTo(sx + r, sy - r + k);
+    ctx.moveTo(sx + r, sy + r - k); ctx.lineTo(sx + r, sy + r); ctx.lineTo(sx + r - k, sy + r);
+    ctx.moveTo(sx - r + k, sy + r); ctx.lineTo(sx - r, sy + r); ctx.lineTo(sx - r, sy + r - k);
+    ctx.stroke();
+    ctx.fillStyle = C.text;
+    ctx.font = LABEL_FONT;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(ID_LABELS[tr.id - 1], sx + r + 4, sy - r + 2);
+  }
 }
 
 function frame(ts) {
@@ -383,6 +402,7 @@ function frame(ts) {
   ctx.clearRect(0, 0, W, H);
   ctx.globalAlpha = 1;
   ctx.drawImage(gridCanvas, 0, 0, W, H);
+  selId = selectedId();
 
   // sweep: one thin line
   const sweep = sweepDeg(ts);
@@ -408,6 +428,34 @@ function frame(ts) {
     }
   }
 }
+
+// ---- taps on the radar ----
+
+canvas.addEventListener("pointerdown", (ev) => {
+  if (drawerOpen()) {               // a tap outside the drawer only closes it
+    closeDrawer();
+    return;
+  }
+  const r = stage.getBoundingClientRect();
+  const k = r.width / W;            // the stage is scaled to fit other window sizes
+  const x = (ev.clientX - r.left) / k;
+  const y = (ev.clientY - r.top) / k;
+  let best = null;
+  let bestD = HIT_R * HIT_R;
+  for (let i = 0; i < tracks.length; i++) {
+    const tr = tracks[i];
+    if (!tr.active || tr.leaving) continue;
+    const dx = APEX_X + tr.x * pxPerMm - x;
+    const dy = APEX_Y - tr.y * pxPerMm - y;
+    const d = dx * dx + dy * dy;
+    if (d <= bestD) {
+      best = tr;
+      bestD = d;
+    }
+  }
+  if (best) selectTarget(best.id);
+  else clearSelection();
+});
 
 // ---- sizing, kiosk guards, boot ----
 
@@ -439,6 +487,10 @@ if (new URLSearchParams(location.search).get("fps") === "1") {
   fpsEl.id = "fps";
   stage.appendChild(fpsEl);
 }
+
+initCard({ dotX: (id) => { const tr = tracks[id - 1]; return tr && tr.active ? APEX_X + tr.x * pxPerMm : null; } });
+initDrawer();
+initControls({ send, onReset: clearSelection });
 
 fit();
 showNoSignal(true, "Connecting...");

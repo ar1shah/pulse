@@ -7,14 +7,15 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="stage">
+<div id="stage" data-card-vitals="0">
   <canvas id="radar" width="800" height="480"></canvas>
 
   <header id="bar">
-    <span class="wordmark">PULSE</span>
+    <button id="wordmark" class="wordmark" type="button" aria-label="PULSE. Hold to clear contacts.">PULSE<i class="hold"></i></button>
     <span id="badge" class="badge">---</span>
     <span id="pill-ld2450" class="pill" data-status="offline"><i></i>LD2450 <b>--</b></span>
     <span id="pill-c1001" class="pill" data-status="offline"><i></i>C1001 <b>--</b></span>
+    <button id="btn-contacts" class="chip" type="button">CONTACTS <b id="contact-count">0</b></button>
   </header>
 
   <section id="vitals" data-state="idle">
@@ -34,6 +35,54 @@
     <div class="lg"><i class="dot amber"></i><span data-triage="amber"></span></div>
     <div class="lg"><i class="dot gray"></i><span data-triage="gray"></span></div>
   </section>
+
+  <nav id="ranges" aria-label="Range">
+    <button class="range" type="button" data-range="2" aria-pressed="false">2 m</button>
+    <button class="range" type="button" data-range="4" aria-pressed="false">4 m</button>
+    <button class="range" type="button" data-range="6" aria-pressed="false">6 m</button>
+  </nav>
+
+  <aside id="card" data-open="0" data-side="left" data-mode="free" data-lost="0">
+    <div class="c-head">
+      <div id="c-title" class="c-title">CONTACT -</div>
+      <button id="c-close" class="x" type="button" aria-label="Close">&times;</button>
+    </div>
+    <div class="c-lost">SIGNAL LOST<small>Showing the last known position</small></div>
+    <div class="c-body">
+      <div class="c-big"><b id="c-range">-</b><span id="c-bearing">-</span></div>
+      <dl class="c-rows">
+        <div><dt>MOTION</dt><dd id="c-motion">-</dd></div>
+        <div><dt>STATUS</dt><dd id="c-status" data-triage="gray">-</dd></div>
+        <div><dt>FIRST SEEN</dt><dd id="c-seen">-</dd></div>
+      </dl>
+      <div id="c-held" class="c-held"></div>
+      <div class="c-live">
+        <div class="c-vital"><span id="c-heart" class="c-num">--</span><span class="c-unit">HEART<br>BPM</span></div>
+        <div class="c-vital"><span id="c-breath" class="c-num">--</span><span class="c-unit">BREATH<br>/ MIN</span></div>
+      </div>
+      <div class="c-free">
+        <div class="c-aim">
+          <svg id="c-arrow" class="c-arrow" viewBox="-20 -20 40 40" aria-hidden="true"><path d="M0 -17 L13 4 L4 0 L4 17 L-4 17 L-4 0 L-13 4 Z"/></svg>
+          <div>
+            <div id="c-dist" class="c-dist">-</div>
+            <div id="c-turn" class="c-turn"></div>
+          </div>
+        </div>
+        <div id="c-guide" class="c-guide"></div>
+      </div>
+    </div>
+  </aside>
+
+  <aside id="drawer" data-open="0">
+    <div class="d-head">
+      <div class="d-title">CONTACTS</div>
+      <button id="d-close" class="x" type="button" aria-label="Close">&times;</button>
+    </div>
+    <div id="d-empty" class="d-empty" data-show="0">No contacts yet</div>
+    <ul id="d-list" class="d-list"></ul>
+  </aside>
+
+  <div id="toast" data-show="0"></div>
 
   <div id="nosignal" class="show">
     <div class="ns-title">NO SIGNAL</div>
