@@ -36,7 +36,7 @@ the green LED to stop, unplug). Pi GPIO is 3.3 V only: measure a sensor's TX pin
    ```
    Tests: `cd pi && ../.venv/bin/pytest -q`.
 2. Have Claude Code installed and logged in. Run `claude` from the repo root; it reads `CLAUDE.md` by itself.
-3. Your work is every row and prompt labeled **Alex** / `ALEX-n` below. Right now that's **ALEX-1** in Phase 1.
+3. Your work is every row and prompt labeled **Alex** / `ALEX-n` below. ALEX-1 is done; next is **ALEX-2** in Phase 4 (needs the sensor wired).
 4. Git: `git pull --rebase` before you start a prompt and before you push. Commit and push when each prompt is done.
 5. SSH key for the Pi (do it once the Pi is up in Phase 2):
    ```bash
@@ -130,7 +130,7 @@ Read CLAUDE.md, docs/hardware.md (LD2450 section), pi/pulse/sources.py and pi/pu
 Run all tests, update docs/STATUS.md, commit on this branch.
 ```
 
-### ALEX-1. C1001 parser, reader, dump tool [Claude Code, Alex]
+### ALEX-1. C1001 parser, reader, dump tool [Claude Code, Alex] (done, on `main`)
 
 ```
 Read CLAUDE.md, docs/hardware.md (C1001 section) and pi/pulse/sensors/c1001.py.
@@ -162,7 +162,7 @@ lines you ported. Run all tests, update docs/STATUS.md, commit.
 - [ ] [EE] Sensor cable connectors: do lab female jumpers fit? If not, plan: ______
 - [x] [Ari] SD card decision: **new card, flashed fresh** with Raspberry Pi Imager (the loaner's card is not used)
 - [x] [Ari] ARI-1 done (committed straight to `main`, no worktree)
-- [ ] [Alex] ALEX-1 started
+- [x] [Alex] ALEX-1 done (on `main`; the reader is what `LiveSource` already imports)
 - [ ] **Sync:** parts accounted for, both parser sessions running
 
 ---

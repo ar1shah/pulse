@@ -114,21 +114,103 @@ The sensor also has Bluetooth; Hi-Link's HLKRadarTool phone app can view targets
 References: [ESPHome LD2450](https://new.esphome.io/components/sensor/ld2450),
 [RBEGamer/HLK-LD2450](https://github.com/RBEGamer/HLK-LD2450), [espboards LD2450](https://www.espboards.dev/sensors/ld2450/).
 
-## C1001 protocol (hints only; DFRobot_HumanDetection source is the truth)
+## C1001 protocol (ported from DFRobot_HumanDetection)
 
-- Official driver: Arduino library **DFRobot_HumanDetection** (GitHub, DFRobot org). Port it.
-- Vitals only in sleep/vitals work mode; the library has a call to set the work mode.
-- Vitals need the chest facing the sensor at 0.4 to 1.5 m, person fairly still. Expect a settle delay.
-- Ranges: breathing 10 to 25 /min, heart 60 to 100 bpm. Presence detection to about 11 m.
-- Frame format is believed to be: header `53 59`, control word, command word, 2-byte length,
-  data, 1-byte checksum (sum of preceding bytes & 0xFF), tail `54 43`. **Confirm from the library.**
-- Fill in the real control/command words here after porting, with links to the library lines.
+Source of truth: DFRobot's Arduino library [DFRobot_HumanDetection](https://github.com/DFRobot/DFRobot_HumanDetection), pinned at commit
+`f98f64e` (2025-10-24). Every link below points at that commit. The repo also has a Raspberry Pi Python port
+(`python/raspberrypi/`), a looser copy of the same logic (no checksum check on replies); we ported the C++.
+The [SEN0623 wiki](https://wiki.dfrobot.com/SKU_SEN0623_C1001_mmWave_Human_Detection_Sensor) has specs only, no
+protocol: 5 V, max 100 mA, breathing and heart rate at 0.4 to 1.5 m with the chest facing the sensor, breathing 10 to
+25 /min, heart 60 to 100 bpm, presence to 11 m, 100 x 100 deg beam.
 
-References: [DFRobot SEN0623 wiki](https://wiki.dfrobot.com/SKU_SEN0623_C1001_mmWave_Human_Detection_Sensor),
-[how2electronics C1001 + ESP32](https://how2electronics.com/esp32-c10).
+UART 115200 8N1 ([basics.ino L28-L34](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/examples/basics/basics.ino#L28-L34)).
 
-Fallback if the port stalls: flash DFRobot's Arduino example onto an ESP32, print JSON over USB serial,
-read that on the Pi.
+### Frame ([getData L791-L801](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L791-L801), [sumData L929-L938](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L929-L938))
+
+```
+53 59 | ctrl | cmd | len_hi len_lo | data (len bytes) | sum | 54 43
+```
+
+- Length is **big-endian** u16 (the old hint didn't say).
+- `sum` = low byte of the sum of every byte before it (header through data).
+- Requests and replies have the same layout. A reply carries the same ctrl and cmd as its request
+  ([getData state machine L830-L921](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L830-L921)). The value is `data[0]` (`buf[6]` in the library); 2-byte
+  values are big-endian (`buf[6] << 8 | buf[7]`, e.g. [L163](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L163)).
+- Every query sends one data byte, `0x0F`.
+
+Example, heart rate query: `53 59 85 82 00 01 0F C3 54 43`. Work mode set to sleep: `53 59 02 08 00 01 02 B9 54 43`.
+
+### The library polls
+
+It never waits for pushed reports. Each read is `getData()`: write the query, read until a frame with the same
+ctrl/cmd arrives and its checksum matches, resend every 1 s, give up after 5 s
+([`TIME_OUT` L37](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.h#L37), [resend L805-L814](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L805-L814), [timeout L824-L828](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L824-L828)). It flushes the
+input buffer before each send and ignores any other frame. Our reader polls the same way; frames nobody asked for
+are counted (`reader.unsolicited`, shown by the dump tool) so we learn on Saturday whether this firmware also pushes.
+
+### Command words used
+
+| ctrl cmd | Data sent | Reply `data[0]` | Library |
+| --- | --- | --- | --- |
+| `01 83` | `0F` | HP LED state (0 off, 1 on). `begin()` uses it as the "sensor is up" ping | [begin L19-L30](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L19-L30), [getLEDLightState L101-L121](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L101-L121) |
+| `02 A8` | `0F` | work mode: 1 fall, 2 sleep | [configWorkMode L38](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L38), [getWorkMode L69-L78](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L69-L78) |
+| `02 08` | mode | (not awaited: raw write, then 10 s wait) | [configWorkMode L36-L50](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L36-L50) |
+| `01 03` | `01` | HP LED on | [configLEDLight L80-L99](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L80-L99) |
+| `01 02` | `0F` | module reset, then 10 s wait | [sensorRet L123-L133](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L123-L133) |
+| `80 81` | `0F` | presence: 0 nobody, 1 somebody | [smHumanData L142-L147](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L142-L147) |
+| `80 82` | `0F` | movement: 0 none, 1 still, 2 active | [L148-L153](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L148-L153) |
+| `81 82` | `0F` | breathing value (/min) | [getBreatheValue L194-L203](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L194-L203) |
+| `85 82` | `0F` | heart rate (bpm) | [getHeartRate L172-L181](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L172-L181) |
+
+Also in the library, not used by us: `80 83` body movement 0 to 100, `80 84` distance (2 bytes), `81 81` breathing
+state (1 normal, 2 fast, 3 slow, 4 none), `84 8D` sleep composite (8 bytes incl. average breath/heart), fall-mode
+words under ctrl `83`. Quirk: the header declares `eHPLed = 0x04`, but the code sends cmd `03` for the HP LED and
+`04` for the fall LED ([L84-L97](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L84-L97)); we follow the code.
+
+### Init sequence ([basics.ino setup L37-L63](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/examples/basics/basics.ino#L37-L63))
+
+1. `begin()`: wait 10 s after power-up, then ping `01 83`.
+2. `configWorkMode(eSleepMode)` ([`eSleepMode = 0x02`](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.h#L92)): query `02 A8`; if it isn't 2, write `02 08 [02]`,
+   wait 10 s, query again to verify. Sleep mode is the one that reports breathing and heart rate.
+3. `configLEDLight(eHPLed, 1)`: `01 03 [01]`.
+4. `sensorRet()`: `01 02`, then wait 10 s. The example says the reset is required after setting anything.
+5. `loop()` ([L81-L116](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/examples/basics/basics.ino#L81-L116)): presence, movement, body movement, breath, heart, then `delay(1000)`.
+
+What `C1001Reader` does differently, on purpose:
+- No blind 10 s wait before the ping: the ping is retried until the sensor answers (it can't answer before it boots).
+- The LED write and the reset only happen if the mode or the LED actually needed changing. On a sensor that is
+  already set up (the library queries the mode before switching, which suggests it persists; confirm on Saturday) the reader
+  is polling within a second of opening the port; a fresh sensor takes about 20 s (two 10 s waits).
+- Vitals queries give up after 2 s instead of 5 s, and a round stops early if presence gets no reply, so a dead
+  sensor goes stale quickly. 3 silent rounds in a row: close the port, reconnect every 2 s.
+- Not ported: the library's per-byte `delay(50)` and its `data == previous byte` guards in the length states
+  ([L873-L891](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L873-L891)), which only exist because its loop re-reads a stale `data` variable. We also check the
+  `54 43` tail, which the library writes but never checks.
+
+### Code (ALEX-1)
+
+`pi/pulse/sensors/c1001.py`:
+- `C1001Parser`: pure, incremental. Feed any chunks; resyncs on `53 59`, verifies checksum and tail, rejects a length
+  over 64 (a corrupted length can't stall it), counts `good` / `bad` / `bad_checksum` / `skipped_bytes`.
+  `feed_with_raw` also returns each frame's bytes.
+- `build_frame`, `query`, `cmd_set_work_mode`, `cmd_hp_led`, `cmd_reset`, `decode_moving`, `decode_vital`.
+- `C1001Reader(port, baud=115200)`: `.start()`, `.stop()`, `.latest(now) -> (C1001Reading | None, status)`. Never
+  raises. Status: `offline` (port not open, or the sensor hasn't answered the ping since it opened), `warming`
+  (answering, but no breath or heart value seen yet since connecting; this includes the mode switch and reset
+  waits), `stale` (no reading for > 3 s; the contract's 1 s is too tight for a 1 Hz poll), `ok`.
+- Reading values: presence = reply 1; moving = True for 2 (active), False for 1 (still), None for 0; breath and heart
+  pass through raw (fusion applies the 10 to 25 / 60 to 100 ranges), except 0 and 0xFF become None (no reading,
+  never invented).
+- `LiveSource` picks it up from env `C1001_PORT` (no edits to `sources.py`).
+
+Dump tool, from the repo root on the Pi (stop the service first, it owns the port):
+`.venv/bin/python tools/c1001_dump.py /dev/ttyAMA3 [--record recordings/c1001_session1.jsonl]`. It runs the real
+reader, so it shows the init phase, status, presence / moving / breath / heart, frames/s, bad frames, timeouts and
+any unsolicited frames. Recorded lines: `{"t", "kind": "frame", "raw", "ctrl", "cmd", "data"}` for every frame the
+sensor sends and `{"t", "kind": "reading", "presence", "moving", "breath_rpm", "heart_bpm"}` per poll round.
+
+Fallback if the port stalls: flash DFRobot's `basics.ino` onto an ESP32, print JSON over USB serial, read that on
+the Pi.
 
 ## Power
 

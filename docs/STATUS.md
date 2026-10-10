@@ -6,7 +6,8 @@ Update this when a phase changes or a prompt finishes. What to do is in docs/PLA
 >
 > - **Ari:** SD card decided (a new card, being flashed with Raspberry Pi Imager). ARI-1 is done (on `main`).
 >   Next: Phase 2 boot + SSH as soon as the card is ready.
-> - **Alex:** ALEX-1 (C1001 parser, reader, dump tool).
+> - **Alex:** ALEX-1 is done (on `main`). Next: ALEX-2 in Phase 4, once the C1001 is wired. Meanwhile, Phase 2 + 3
+>   help, and read docs/hardware.md "C1001 protocol" (what the sensor should do on first connect).
 > - **EE:** Phase 1 checklist (inventory, photos, pin labels, cable connectors, power supply).
 
 **Deadlines:** Devpost final Sun Oct 11 10:00 AM, commits stop 11:00 AM, repo public at submission.
@@ -19,7 +20,7 @@ Tick boxes live only in docs/PLAYBOOK.md; this table is the summary.
 | Phase | Name | Owner(s) | Status | Prompts |
 | --- | --- | --- | --- | --- |
 | 0 | Done so far (T0 to T4) | All | Done | T0 to T4 |
-| 1 | Unbox + start the parsers | EE, Ari, Alex | In progress | ARI-1 (done), ALEX-1 |
+| 1 | Unbox + start the parsers | EE, Ari, Alex | In progress | ARI-1 (done), ALEX-1 (done) |
 | 2 | Pi + screen boot | EE, Ari, Alex | Not started | Manual only |
 | 3 | Pi setup + serial ports | Ari, EE | Not started | ARI-2 |
 | 4 | Sensors live | EE, Ari, Alex | Not started | ARI-3, ALEX-2 |
@@ -174,3 +175,32 @@ into docs/hardware.md too.
   missing port.
 - A1 for CS2: `LiveSource` calls `C1001Reader(port, baud=115200)`, `.start()`, `.stop()`, `.latest(now)`. No edits to
   `sources.py` needed; once `C1001Reader` exists in `sensors/c1001.py` it gets picked up.
+- ALEX-1: ported from DFRobot's Arduino library DFRobot_HumanDetection at commit `f98f64e` (docs/hardware.md "C1001
+  protocol" links every line). The frame hint was right except the length is BIG-endian: `53 59 | ctrl | cmd | len BE16
+  | data | sum8 | 54 43`. The library POLLS (query with data `0F`, reply has the same ctrl/cmd, value in `data[0]`,
+  resend every 1 s, give up at 5 s); it never waits for pushed reports, so the reader polls too.
+- ALEX-1: init = ping `01 83` (HP LED state), query mode `02 A8`, switch to sleep mode with `02 08 [02]` + 10 s wait if it
+  isn't 2, HP LED on `01 03 [01]`, reset `01 02` + 10 s wait. Polls presence `80 81`, movement `80 82`, breath `81 82`,
+  heart `85 82` once a second. Differences from the library, on purpose: no blind 10 s wait before the ping (the ping is
+  retried instead); LED write + reset only if the mode or LED needed changing; vitals queries time out at 2 s, not 5 s.
+  Fresh sensor: about 20 s from port open to the first reading. Already-configured sensor: about 1 s.
+- ALEX-1: `C1001Reader(port, baud=115200)` status: `offline` (port closed, or no answer to the ping since it opened),
+  `warming` (answering, no breath/heart value yet since connecting, includes the mode switch and reset waits), `stale`
+  (no reading > 3 s, not the contract's 1 s, since it polls at 1 Hz), `ok`. 3 poll rounds with no reply = close the port
+  and reconnect every 2 s. Fusion treats `warming` as usable, so C1001 presence still holds a still track while warming.
+  Readings: moving True/False/None for movement 2/1/0; breath and heart raw (fusion applies the ranges) except 0 and
+  0xFF become None.
+- ALEX-1: `tools/c1001_dump.py PORT [--baud] [--record FILE.jsonl]` runs the real reader: status, init phase, presence /
+  moving / breath / heart, frames/s, good/bad/checksum/skipped, timeouts, and frames nobody asked for (if this firmware
+  also pushes reports, they show up there). Records every sensor frame (`kind: frame`, raw hex) and every poll round
+  (`kind: reading`). Checked end to end over a macOS pty against a scripted fake sensor that started in fall mode with
+  the LED off: full init with switch + reset, warming, then vitals; 101 frames, 0 bad, injected garbage all skipped;
+  stale then offline when the fake exited; Ctrl-C exits cleanly mid-init. Not yet run against the real sensor.
+- ALEX-1: things to check on Saturday (ALEX-2): does the sensor answer the ping right after power-up or need the
+  library's 10 s; does the mode persist across power cycles (then later boots skip the 20 s); does it push any frames
+  unprompted (dump tool's "unsolicited" line); what breath/heart read with nobody there (we map 0 and 0xFF to null).
+- ALEX-1: 147 tests pass (`test_c1001.py` added, 30 tests: query bytes vs a byte-for-byte copy of the library's
+  `getData()` frame builder, known vectors, checksum and tail failures, impossible length, split at every offset,
+  byte-by-byte, garbage, random noise, reader init with and without mode switch, failed switch, warming to ok, missing
+  replies, never-answering sensor, stale then reconnect, missing port, read errors, LiveSource with the real reader).
+  Sim checked by hand; `PULSE_SOURCE=live` with no hardware shows both sensors offline and logs the C1001 retry.
