@@ -98,6 +98,10 @@ def main() -> int:
         return ctx, page
 
     def play_mock(page, route, frames):
+        for _ in range(60):             # the page opens its socket right after load
+            if route:
+                break
+            page.wait_for_timeout(50)
         for i, f in enumerate(frames):
             route[0].send(json.dumps(f))
             page.wait_for_timeout(100)
@@ -112,7 +116,7 @@ def main() -> int:
             ctx, page = new_page(browser)
             server = start_server()          # started after the browser so the settling window is not missed
             page.goto(BASE + "/")
-            page.wait_for_function("document.fonts.check('700 22px Rajdhani')")
+            page.wait_for_function("document.getElementById('nosignal') !== null")
             s = wait_for(lambda s: s["vitals"]["target_id"] is not None and s["vitals"]["heart_bpm"] is None,
                          6, "settling")
             if s:
@@ -142,7 +146,7 @@ def main() -> int:
             route: list = []
             page.route_web_socket("**/ws", lambda ws: route.append(ws))
             page.goto(BASE + "/")
-            page.wait_for_function("document.fonts.check('700 22px Rajdhani')")
+            page.wait_for_function("document.getElementById('nosignal') !== null")
             t = 1_800_000_000.0
 
             # no lock: a mover and a held, not-assessed track; nothing in the cone
@@ -174,7 +178,7 @@ def main() -> int:
             ctx, page = new_page(browser)
             page.add_init_script("window.WebSocket = class { constructor() { throw new Error('blocked'); } };")
             page.goto(BASE + "/")
-            page.wait_for_function("document.fonts.check('700 22px Rajdhani')")
+            page.wait_for_function("document.getElementById('nosignal') !== null")
             page.wait_for_timeout(800)
             shot(page, "8-no-signal")
             ctx.close()

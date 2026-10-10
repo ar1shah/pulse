@@ -15,35 +15,31 @@
     <span id="badge" class="badge">---</span>
     <span id="pill-ld2450" class="pill" data-status="offline"><i></i>LD2450 <b>--</b></span>
     <span id="pill-c1001" class="pill" data-status="offline"><i></i>C1001 <b>--</b></span>
-    <span class="spacer"></span>
-    <span class="contacts">CONTACTS <b id="contacts">0</b></span>
-    <span id="clock" class="clock">--:--:--</span>
   </header>
 
   <section id="vitals" data-state="idle">
     <div class="v-idle">
-      <div class="v-title">NO LOCK</div>
+      <div class="v-title">No lock</div>
       <div class="v-hint">Aim at a contact<br>within 1.5 m</div>
     </div>
     <div class="v-live">
-      <div class="v-head">CONTACT <b id="v-id">-</b> &middot; <b id="v-range">-</b></div>
+      <div class="v-head">Contact <b id="v-id">-</b> &middot; <b id="v-range">-</b></div>
       <div class="v-row"><span id="v-heart" class="v-num">--</span><span class="v-unit">HEART<br>BPM</span></div>
       <div class="v-row"><span id="v-breath" class="v-num">--</span><span class="v-unit">BREATH<br>/ MIN</span></div>
     </div>
   </section>
 
   <section id="legend">
-    <div class="lg"><i class="dot green"></i><span>MOVING</span></div>
-    <div class="lg"><i class="dot amber"></i><span>STILL, BREATHING<br><em>REACH FIRST</em></span></div>
-    <div class="lg"><i class="dot gray"></i><span>NOT ASSESSED</span></div>
+    <div class="lg"><i class="dot green"></i><span data-triage="green"></span></div>
+    <div class="lg"><i class="dot amber"></i><span data-triage="amber"></span></div>
+    <div class="lg"><i class="dot gray"></i><span data-triage="gray"></span></div>
   </section>
 
   <div id="nosignal" class="show">
     <div class="ns-title">NO SIGNAL</div>
-    <div id="ns-sub" class="ns-sub">Connecting&hellip;</div>
+    <div id="ns-sub" class="ns-sub">Connecting...</div>
   </div>
 </div>
-<div id="scan"></div>
 <script type="module" src="radar.js"></script>
 </body>
 </html>

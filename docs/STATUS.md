@@ -62,23 +62,28 @@ Task ids match docs/PROMPTS.md.
   ignored); the C1001 reading is trusted when its status is not stale/offline.
 - T2: 92 tests pass (`cd pi && ../.venv/bin/pytest -q`). Checked by hand: /ws at 10.0 msg/s, set_gate from the
   debug page, `PULSE_SOURCE=live` reports both sensors offline.
-- T3: `ui/index.html`, `radar.js`, `style.css`. Fixed 800x480 stage (scaled to fit other window sizes), one canvas plus
-  DOM text for the bar and corner panels. Bundled font: Rajdhani SemiBold/Bold + OFL.txt in `ui/fonts/` (the TTFs are
-  ~400 KB each because they include Devanagari; subset later if load time matters on the Pi). All colors are CSS
-  custom properties in style.css; radar.js reads them once. Add `?fps=1` for an fps counter.
-- T3: layout reserved for T4: bottom-left is the vitals panel, bottom-right is the legend (T4 can put the range
-  buttons there or replace it). Both are clipped along the sector edge, so nothing overlaps the radar. Dot hit
-  testing is not built yet; positions are `APEX_X + x_mm * pxPerMm`, `APEX_Y - y_mm * pxPerMm` in radar.js and the
-  `tracks` array holds the render position (mm) per id.
-- T3: behaviors worth knowing: held dots (last_seen_s > 0) fade toward a 0.3 alpha floor (0.7 if locked) rather than
-  to zero, so a still survivor kept alive by C1001 presence stays visible; a track that leaves the snapshot fades out
-  over 300 ms. The beat trace is a stylised beat drawn at the measured heart_bpm and goes flat gray when heart_bpm is
-  null; it is not a waveform from the sensor, so don't describe it as an ECG in copy. NO SIGNAL shows when the socket
-  closes, errors, or sends nothing for 2 s; reconnect backoff is 0.5, 1, 2, 4, then 5 s.
+- T3: `ui/index.html`, `radar.js`, `style.css`. Fixed 800x480 stage (scaled to fit other window sizes), one canvas
+  plus DOM text. Simplified after review (it first shipped with glow, scanlines, trails, pings, a beat trace and a
+  game-style font, which read as a video game): flat near-black, a faded 40 px square grid (CSS `#stage::before`),
+  thin 120 deg wedge, 1 m rings labelled at the left edge, a dashed lock zone, one thin sweep line, flat dots.
+  System sans font (no bundled font files). All colors are CSS custom properties; radar.js reads them once.
+  `?fps=1` adds an fps counter.
+- T3: on screen, all small: a 24 px status line (PULSE, source, two sensor dots), the vitals panel bottom left
+  (40 px numbers, `settling...` when null, "No lock / Aim at a contact within 1.5 m" when idle), a 12 px legend
+  bottom right built from `TRIAGE_LABELS`. Deliberately cut: clock, contact count, id labels, trails, pings, beat
+  trace, reticle brackets, angle ticks. Legend, vitals panel and status line are the first things to remove if the
+  user wants it sparser. T4 will add the contacts button and range buttons.
+- T3: behaviors worth knowing: held dots (last_seen_s > 0) are hollow rings fading toward a 0.3 alpha floor (0.7 if
+  locked) so a still survivor kept alive by C1001 presence stays visible; a track that leaves the snapshot fades out
+  over 300 ms; the locked dot gets one thin ring. If `set_gate` narrows `max_angle_deg`, the wedge narrows with it.
+  Heart and breath show only snapshot values, never invented. NO SIGNAL shows when the socket closes, errors, or
+  sends nothing for 2 s; reconnect backoff is 0.5, 1, 2, 4, then 5 s.
 - T3: `tools/ui_screenshots.py` (needs `playwright`, now in requirements-dev.txt, plus `python -m playwright install
   chromium`) starts its own sim server on :8010 and writes `docs/screenshots/t3-*.png`: settling, locked, walker,
   held from the real server; idle, 2 m / 30 deg gate, sensors down, NO SIGNAL from a mocked /ws. It exits non-zero on
   any page error. The demo sitter locks immediately (before numbers), so "no lock" is only reachable via the mock.
 - T3: not yet checked on the Pi itself: 61 fps in headless Chromium on the Mac says nothing about a Pi 4. Check
-  `/?fps=1` on the device in T8/T9 and look at the sweep trail (16 translucent wedges per frame) first if it is slow.
-- T3: 93 tests pass (one new: UI assets are served and contain no http(s) URLs).
+  `/?fps=1` on the device in T8/T9. The frame loop is now just a sweep line and up to 3 dots.
+- T3: type is now smaller than CLAUDE.md's "judged from about 1 m: big type, high contrast" gotcha assumes (numbers
+  40 px, labels 12 to 13 px). Decide on the Pi at 1 m whether to bump the vitals numbers back up.
+- T3: 93 tests pass.
