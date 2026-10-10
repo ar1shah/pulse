@@ -199,6 +199,12 @@ button {
 }
 .wordmark.holding .hold { width: 100%; transition: width 1500ms linear; }
 
+/* EXIT (Pi kiosk only): hold 1.5 s like the wordmark; the margin keeps its hit area clear of CONTACTS */
+.chip.exit { margin-left: 24px; color: var(--dim); }
+.chip.exit[hidden] { display: none; }
+.chip.exit .hold { position: absolute; left: 0; bottom: -3px; height: 2px; width: 0; background: var(--danger); }
+.chip.exit.holding .hold { width: 100%; transition: width 1500ms linear; }
+
 .chip {
   margin-left: auto;
   padding: 0 10px;

@@ -1,0 +1,16 @@
+# Pulse server: FastAPI + uvicorn on :8000, run from the venv. A systemd USER unit (so deploy.sh can restart it
+# without sudo); setup_pi.sh installs it to ~/.config/systemd/user/ and enables linger so it starts at boot.
+# Defaults to sim; ~/pulse/.env (the Pi's own, never deployed) overrides, e.g. PULSE_SOURCE=live.
+[Unit]
+Description=Pulse radar server (FastAPI + uvicorn on :8000)
+
+[Service]
+WorkingDirectory=%h/pulse/pi
+Environment=PULSE_SOURCE=sim SIM_SCENARIO=demo PYTHONUNBUFFERED=1
+EnvironmentFile=-%h/pulse/.env
+ExecStart=%h/pulse/.venv/bin/python -m pulse.main
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

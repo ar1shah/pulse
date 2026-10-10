@@ -64,7 +64,7 @@ pi/
 ui/              index.html, radar.js, card.js, drawer.js, controls.js, fmt.js, style.css, contract.js, debug.html,
                  command.html (ALEX-4), fonts/
 tools/           ld2450_dump.py, c1001_dump.py (ALEX-1), uart_loopback.py (ARI-2), ui_screenshots.py, ui_t4_shots.py
-scripts/         setup_pi.sh, deploy.sh, pi_logs.sh, pulse.service (all ARI-2)
+scripts/         setup_pi.sh, deploy.sh, pi_logs.sh, pulse.service, kiosk.sh, pi_venv.sh, pi_launchers.sh (all ARI-2)
 recordings/      captured sensor sessions (.jsonl), gitignored except small samples
 hardware/        enclosure sketches, build photos
 ```
@@ -83,13 +83,16 @@ cd pi && PULSE_SOURCE=sim SIM_SCENARIO=demo python -m pulse.main
 # Tests
 cd pi && pytest -q
 
-# Ship to the Pi and restart the service + kiosk
+# One-time Pi setup (on the Pi, asks for the sudo password; never reboots). Re-running is safe.
+ssh -t pulse@pulse.local bash pulse/scripts/setup_pi.sh
+
+# Ship to the Pi and restart the service + kiosk (no sudo needed)
 PI_HOST=pulse@pulse.local scripts/deploy.sh
 
 # Pi logs
 PI_HOST=pulse@pulse.local scripts/pi_logs.sh
 
-# LD2450 live view on the Pi (sudo systemctl stop pulse first; it owns the port)
+# LD2450 live view on the Pi (systemctl --user stop pulse first when in live mode; it owns the port)
 .venv/bin/python tools/ld2450_dump.py /dev/ttyAMA0 --multi
 ```
 
@@ -125,4 +128,9 @@ PI_HOST=pulse@pulse.local scripts/pi_logs.sh
   keeps a still track alive while the C1001 reports presence in the lock cone.
 - LD2450 slot order is not identity; fusion associates detections to tracks by nearest neighbor.
 - Chromium kiosk caches hard; deploy reloads the page.
+- `pulse.service` is a systemd **user** unit (`systemctl --user ...`, `journalctl --user -u pulse`), with linger on
+  so it starts at boot. sudo on the Pi needs a password, so nothing in deploy may use sudo.
+- The kiosk is `scripts/kiosk.sh` (labwc autostart). The UI's EXIT chip (hold 1.5 s) closes it; the desktop icon,
+  Menu > Accessories > Pulse, or `pulse` in the Pi's Terminal reopens it. `pkill -f` over ssh matches its own
+  command line: use a pattern like `"[k]iosk.sh"`.
 - The 7" screen is judged from about 1 m away: big type, high contrast.

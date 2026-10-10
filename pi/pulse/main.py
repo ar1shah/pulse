@@ -1,4 +1,4 @@
-"""FastAPI app: serves ui/, broadcasts a snapshot on /ws every 100 ms, GET /api/snapshot.
+"""FastAPI app: serves ui/, broadcasts a snapshot on /ws every 100 ms, GET /api/snapshot, /api/kiosk.
 
 Run with `python -m pulse.main` (from pi/) or `uvicorn pulse.main:create_app --factory`.
 Data source comes from env PULSE_SOURCE (sim | live | replay), see sources.py.
@@ -11,10 +11,11 @@ import time
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, WebSocket
+from fastapi import FastAPI, HTTPException, Request, WebSocket
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from . import kiosk
 from .fusion import Fusion
 from .sources import Source, make_source
 
@@ -26,6 +27,7 @@ HOST = "0.0.0.0"
 PORT = 8000
 # Chromium kiosk caches hard; no-cache makes it revalidate (cheap 304s) so a deploy shows up on reload.
 NO_CACHE = {"Cache-Control": "no-cache"}
+LOCAL_HOSTS = {"127.0.0.1", "::1"}
 
 
 class _UiFiles(StaticFiles):
@@ -157,6 +159,17 @@ def create_app(source: Source | None = None) -> FastAPI:
         if pulse.latest is None:
             pulse.tick()
         return pulse.latest  # type: ignore[return-value]
+
+    @app.get("/api/kiosk")
+    def kiosk_state() -> dict[str, bool]:
+        return {"running": kiosk.running()}
+
+    @app.post("/api/kiosk/exit")
+    def kiosk_exit(request: Request) -> dict[str, bool]:
+        # only the Pi's own screen may close its kiosk, not anyone else on the Wi-Fi
+        if request.client is None or request.client.host not in LOCAL_HOSTS:
+            raise HTTPException(status_code=403, detail="only from the Pi itself")
+        return {"ok": kiosk.exit_kiosk()}
 
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket) -> None:

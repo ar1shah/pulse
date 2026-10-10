@@ -29,7 +29,7 @@ Sensor TX goes to Pi RX. Sensor RX goes to Pi TX.
 | GND | Pin 6 | Pin 9 |
 | Sensor TX to Pi RX | Pin 10 (GPIO15, UART0 RX) | Pin 29 (GPIO5, UART3 RX) |
 | Sensor RX to Pi TX | Pin 8 (GPIO14, UART0 TX) | Pin 7 (GPIO4, UART3 TX) |
-| Linux device | `/dev/ttyAMA0` | Check with `ls -l /dev/ttyAMA*` after reboot (often ttyAMA3 or ttyAMA1) |
+| Linux device | `/dev/ttyAMA0` | `/dev/ttyAMA3` (UART3, seen after setup + reboot on our Pi) |
 | Baud | 256000 | 115200 |
 
 If the screen takes a GPIO 5 V pin, run both sensors off the other 5 V pin via a breadboard rail and use any free
@@ -49,8 +49,25 @@ dtoverlay=uart3
 
 Plus: serial login console OFF, serial hardware ON (`raspi-config`), user in `dialout` group.
 
-Loopback test before sensors arrive: jumper pin 8 to pin 10, run `tools/uart_loopback.py /dev/ttyAMA0 256000`.
-Same with pins 7 and 29 for UART3.
+Our Pi (ARI-2): Raspberry Pi OS on Debian 13 trixie, arm64, desktop session `rpd-labwc` (labwc 0.20.2, started
+with `-m` so user config merges with the system's), Chromium 154 at `/usr/bin/chromium`. After `setup_pi.sh` +
+reboot: `/dev/ttyAMA0` (UART0, PL011) and `/dev/ttyAMA3` (UART3) both exist, owned by `dialout`.
+
+What `setup_pi.sh` sets up besides the serial ports:
+- `pulse.service` as a systemd user unit (`~/.config/systemd/user/`), linger on, so it runs at boot without sudo
+  for restarts. Env: defaults `PULSE_SOURCE=sim`, overridden by the Pi's own `~/pulse/.env` (never deployed).
+- Kiosk: `scripts/kiosk.sh` from `~/.config/labwc/autostart`; it waits for :8000, runs Chromium full screen and
+  relaunches it if it dies. The UI's EXIT chip (hold 1.5 s) stops it; a desktop icon, Menu > Accessories > Pulse
+  and a `pulse` shell alias (`scripts/pi_launchers.sh`) start it again.
+- A blank cursor theme (`XCURSOR_THEME=pulse-blank` in `~/.config/labwc/environment`); delete that line to get the
+  cursor back. Screen blanking was already off.
+- Touch: Pi OS set `mouseEmulation="yes"` for the panel in `~/.config/labwc/rc.xml`. Untouched for now; if the
+  drawer won't scroll with a finger in ARI-5, that is the first thing to try.
+
+Loopback test before sensors are wired (Pi off while jumpering): pin 8 to pin 10 and pin 7 to pin 29, then on the Pi
+from `~/pulse`: `.venv/bin/python tools/uart_loopback.py /dev/ttyAMA0 256000` and
+`.venv/bin/python tools/uart_loopback.py /dev/ttyAMA3 115200`. Exit 0 = PASS. "Nothing came back" = jumper or
+UART not enabled; garbled bytes = baud problem (mini UART instead of the PL011). Not run yet (see STATUS).
 
 Plan B: USB to serial adapter (CP2102 or similar that supports 256000) shows up as `/dev/ttyUSB0`.
 Works on the Pi and on a Mac (`/dev/tty.usbserial-*`).
@@ -101,7 +118,7 @@ checks the tail, counts good/bad frames), the command builders, and `Ld2450Reade
 sends enable config + multi-target + end config on connect, status ok / stale after 1 s without a frame / offline,
 reconnects every 2 s). `PULSE_SOURCE=live` reads it from env `LD2450_PORT` (default `/dev/ttyAMA0`).
 
-Dump tool, from the repo root on the Pi (stop the service first, it owns the port):
+Dump tool, from the repo root on the Pi (in live mode stop the service first, it owns the port: `systemctl --user stop pulse`):
 `.venv/bin/python tools/ld2450_dump.py /dev/ttyAMA0 --multi [--record recordings/ld2450_session1.jsonl]`.
 Each recorded line is `{"t", "raw" (30-byte frame as hex), "targets" (parsed)}`; replay should parse `raw`, since
 `targets` bakes in whatever sign constants were set at the time.
@@ -203,7 +220,7 @@ What `C1001Reader` does differently, on purpose:
   never invented).
 - `LiveSource` picks it up from env `C1001_PORT` (no edits to `sources.py`).
 
-Dump tool, from the repo root on the Pi (stop the service first, it owns the port):
+Dump tool, from the repo root on the Pi (in live mode stop the service first, it owns the port: `systemctl --user stop pulse`):
 `.venv/bin/python tools/c1001_dump.py /dev/ttyAMA3 [--record recordings/c1001_session1.jsonl]`. It runs the real
 reader, so it shows the init phase, status, presence / moving / breath / heart, frames/s, bad frames, timeouts and
 any unsolicited frames. Recorded lines: `{"t", "kind": "frame", "raw", "ctrl", "cmd", "data"}` for every frame the

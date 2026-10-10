@@ -1,6 +1,6 @@
 # Pulse playbook
 
-> # >>> WE ARE HERE: PHASE 1 (Unbox + start the parsers) <<<
+> # >>> WE ARE HERE: PHASE 3 (Pi setup + serial ports) <<<
 >
 > Jump to the phase marked `<<< WE ARE HERE` below. Find your name in its table, do your rows, tick your boxes
 > in that phase's checklist. When the phase's **Sync** box is ticked, whoever ticked it moves both
@@ -86,7 +86,7 @@ http://localhost:8000 (or `/debug`). Tests: `cd pi && ../.venv/bin/pytest -q`.
 
 ---
 
-## Phase 1. Unbox + start the parsers (about 15 min)   <<< WE ARE HERE
+## Phase 1. Unbox + start the parsers (about 15 min)
 
 > **>>> CURRENT PHASE <<<**
 
@@ -209,19 +209,22 @@ hostname -I                      # on the Pi: note the IP as a backup for PI_HOS
 
 - [ ] [EE] Ribbon in the DISPLAY port (not CAMERA), both latches closed
 - [ ] [EE] Screen power wires on GPIO pins (if any): 5 V pin ______ GND pin ______
-- [ ] [Ari] New SD card flashed (64-bit desktop, hostname `pulse`, user `pulse`, SSH key, hotspot Wi-Fi)
-- [ ] [EE] Pi boots, desktop shows on the 7" screen
-- [ ] [EE] Tap the screen, including the corners: touch registers
-- [ ] [Ari] `ssh pulse@pulse.local` works from the Mac with no password
+- [x] [Ari] New SD card flashed (64-bit desktop, hostname `pulse`, user `pulse`, SSH key, hotspot Wi-Fi)
+- [x] [EE] Pi boots, desktop shows on the 7" screen
+- [ ] [EE] Tap the screen, including the corners: touch registers (taps work, e.g. the EXIT chip top right; corners not checked)
+- [x] [Ari] `ssh pulse@pulse.local` works from the Mac with no password
 - [ ] [Alex] `ssh pulse@pulse.local` works from Alex's laptop with no password
-- [ ] [Ari] `vcgencmd get_throttled` = `0x0` on the bench supply
-- [ ] [Ari] `vcgencmd measure_temp` under 70 C idle: ______ C
-- [ ] [Ari] Pi IP from `hostname -I`: ______
+- [x] [Ari] `vcgencmd get_throttled` = `0x0` on the bench supply
+- [x] [Ari] `vcgencmd measure_temp` under 70 C idle: 42.3 C
+- [x] [Ari] Pi IP from `hostname -I`: 172.20.10.4 (phone hotspot), 10.4.245.18 (Velocity Wi-Fi)
 - [ ] **Sync:** Pi on the screen and reachable over SSH from both CS laptops
 
 ---
 
-## Phase 3. Pi setup + serial ports (about 30 min)
+## Phase 3. Pi setup + serial ports (about 30 min)   <<< WE ARE HERE
+
+Moved here with the Phase 1 and 2 EE boxes still open (inventory, photos, pin labels, screen power pins, touch
+corners): the Pi is set up and running the kiosk, so the work is here. EE, tick those when you get a minute.
 
 | Who | Does |
 | --- | --- |
@@ -229,7 +232,7 @@ hostname -I                      # on the Pi: note the IP as a backup for PI_HOS
 | EE | [Manual] Loopback jumpers when ARI-2 asks; multimeter the Pi's 5 V pins; start the demo panel |
 | Alex | Keep ALEX-1 going |
 
-### ARI-2. Pi setup, kiosk, deploy, loopback [Claude Code, Ari]
+### ARI-2. Pi setup, kiosk, deploy, loopback [Claude Code, Ari] (scripts done and run; loopback + fps left)
 
 ```
 Read CLAUDE.md and docs/hardware.md. The Pi is reachable at $PI_HOST (pulse@pulse.local) with key auth.
@@ -266,15 +269,15 @@ update docs/STATUS.md, commit.
 
 ### Phase 3 checklist
 
-- [ ] [Ari] ARI-2: setup_pi.sh ran clean, Pi rebooted
-- [ ] [Ari] Radar comes up full screen by itself after the reboot (sim mode)
+- [x] [Ari] ARI-2: setup_pi.sh ran clean, Pi rebooted
+- [x] [Ari] Radar comes up full screen by itself after the reboot (sim mode)
 - [ ] [Ari] `/?fps=1` on the Pi: ______ fps
 - [ ] [EE] Pi off. Jumper pin 8 to pin 10 and pin 7 to pin 29. Pi on
 - [ ] [Ari] Loopback `/dev/ttyAMA0` at 256000: pass
-- [ ] [Ari] UART3 device name: ______ ; loopback at 115200: pass
+- [ ] [Ari] UART3 device name: `/dev/ttyAMA3` ; loopback at 115200: pass
 - [ ] [EE] Pi off. Jumpers removed
 - [ ] [EE] Multimeter: Pi 5 V pins read ______ V
-- [ ] [Ari] ARI-1 on `main` (done), ALEX-1 pushed, `scripts/deploy.sh` run so the Pi has both readers and dump tools
+- [x] [Ari] ARI-1 on `main` (done), ALEX-1 pushed, `scripts/deploy.sh` run so the Pi has both readers and dump tools
 - [ ] **Sync:** both serial ports proven, Pi boots into the radar, both readers deployed
 
 If a loopback fails, it's the Pi config, not a sensor. Fix it before Phase 4.
@@ -295,7 +298,7 @@ Two people can do this at once: separate UARTs, separate SSH sessions. The app s
 
 ```
 The LD2450 is wired per docs/hardware.md and EE confirmed its TX idles at 3.3 V. Over SSH on $PI_HOST:
-sudo systemctl stop pulse, then from ~/pulse run .venv/bin/python tools/ld2450_dump.py /dev/ttyAMA0 --multi. Walk me through the
+systemctl --user stop pulse, then from ~/pulse run .venv/bin/python tools/ld2450_dump.py /dev/ttyAMA0 --multi. Walk me through the
 Phase 4 checklist (LD2450 items) in docs/PLAYBOOK.md one at a time: straight ahead at 1 m, step to MY left, walk toward the sensor, 3 people, max
 range, left/right edges, behind the panel, sitting still for 30 s. From what you see, confirm or flip X_SIGN and
 SPEED_SIGN in pi/pulse/sensors/ld2450.py so output matches the contract (negative x = holder's left, negative speed = approaching),

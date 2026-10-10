@@ -2,13 +2,15 @@ Update this when a phase changes or a prompt finishes. What to do is in docs/PLA
 
 # Status
 
-> # >>> WE ARE HERE: PHASE 1 (Unbox + start the parsers) <<<
+> # >>> WE ARE HERE: PHASE 3 (Pi setup + serial ports) <<<
 >
-> - **Ari:** SD card decided (a new card, being flashed with Raspberry Pi Imager). ARI-1 is done (on `main`).
->   Next: Phase 2 boot + SSH as soon as the card is ready.
-> - **Alex:** ALEX-1 is done (on `main`). Next: ALEX-2 in Phase 4, once the C1001 is wired. Meanwhile, Phase 2 + 3
->   help, and read docs/hardware.md "C1001 protocol" (what the sensor should do on first connect).
-> - **EE:** Phase 1 checklist (inventory, photos, pin labels, cable connectors, power supply).
+> - **Ari:** ARI-2 scripts are done and ran on the Pi: it boots straight into the radar (sim) full screen, both
+>   UART devices exist (`/dev/ttyAMA0`, `/dev/ttyAMA3`). Left in Phase 3: the two loopback tests (jumpers only, no
+>   sensors needed) and the fps reading. Then ARI-3 the moment EE has the LD2450 wired.
+> - **Alex:** ALEX-1 is done (on `main`). ALEX-2 waits for the C1001 to be wired. ALEX-4 (command dashboard + sitrep)
+>   needs no hardware and can start now; ALEX-3 (replay) needs the Phase 4 recordings to be useful.
+> - **EE:** loopback jumpers (Pi off: pin 8 to 10, pin 7 to 29), multimeter on the Pi's 5 V pins, then Phase 4 sensor
+>   wiring (power-only voltage check first). Phase 1 and 2 EE boxes are still open in PLAYBOOK.
 
 **Deadlines:** Devpost final Sun Oct 11 10:00 AM, commits stop 11:00 AM, repo public at submission.
 **Gate:** live dots + live vitals on the screen by 10 PM Sat; no new features after it.
@@ -20,9 +22,9 @@ Tick boxes live only in docs/PLAYBOOK.md; this table is the summary.
 | Phase | Name | Owner(s) | Status | Prompts |
 | --- | --- | --- | --- | --- |
 | 0 | Done so far (T0 to T4) | All | Done | T0 to T4 |
-| 1 | Unbox + start the parsers | EE, Ari, Alex | In progress | ARI-1 (done), ALEX-1 (done) |
-| 2 | Pi + screen boot | EE, Ari, Alex | Not started | Manual only |
-| 3 | Pi setup + serial ports | Ari, EE | Not started | ARI-2 |
+| 1 | Unbox + start the parsers | EE, Ari, Alex | Done except EE boxes | ARI-1 (done), ALEX-1 (done) |
+| 2 | Pi + screen boot | EE, Ari, Alex | Done except EE boxes + Alex SSH | Manual only |
+| 3 | Pi setup + serial ports | Ari, EE | In progress (loopback + fps left) | ARI-2 (scripts done) |
 | 4 | Sensors live | EE, Ari, Alex | Not started | ARI-3, ALEX-2 |
 | 5 | Full app live: the gate (10 PM latest) | Ari, Alex, EE | Not started | ARI-4, ALEX-3, ALEX-4 |
 | 6 | Judge-proof | Ari, EE, Alex | Not started | ARI-5 |
@@ -41,10 +43,10 @@ into docs/hardware.md too.
 | 1 | Sensor cable connectors: plan if lab jumpers don't fit | |
 | 2 | Screen power on GPIO: 5 V pin | |
 | 2 | Screen power on GPIO: GND pin | |
-| 2 | `vcgencmd measure_temp` idle (C) | |
-| 2 | Pi IP (`hostname -I`) | |
+| 2 | `vcgencmd measure_temp` idle (C) | 42.3 |
+| 2 | Pi IP (`hostname -I`) | 172.20.10.4 (hotspot), 10.4.245.18 (Velocity Wi-Fi) |
 | 3 | UI fps on the Pi (`/?fps=1`) | |
-| 3 | UART3 device name | |
+| 3 | UART3 device name | `/dev/ttyAMA3` (from `ls`; loopback not run yet) |
 | 3 | Pi 5 V pins (V, multimeter) | |
 | 4 | LD2450 5 V pin / GND pin | |
 | 4 | C1001 5 V pin / GND pin | |
@@ -61,7 +63,7 @@ into docs/hardware.md too.
 | 4 | C1001 behind the panel: works? | |
 | 6 | Power bank 15 min: `vcgencmd get_throttled` | |
 | 6 | Power bank 15 min: temp (C) | |
-| extra (ARI-2) | Pi user@host / OS / session + compositor / Chromium binary | |
+| extra (ARI-2) | Pi user@host / OS / session + compositor / Chromium binary | pulse@pulse.local / Debian 13 trixie arm64 / rpd-labwc, labwc 0.20.2 / `/usr/bin/chromium` 154 |
 | extra (ARI-2) | UART0 loopback (pin 8 to 10, 256000) / UART3 loopback (pin 7 to 29, 115200) | |
 | extra (ARI-3) | LD2450 x sign: holder's left is raw + or - (`X_SIGN`) | |
 | extra (ARI-3) | LD2450 speed sign: approaching is raw + or - (`SPEED_SIGN`) | |
@@ -204,3 +206,34 @@ into docs/hardware.md too.
   byte-by-byte, garbage, random noise, reader init with and without mode switch, failed switch, warming to ok, missing
   replies, never-answering sensor, stale then reconnect, missing port, read errors, LiveSource with the real reader).
   Sim checked by hand; `PULSE_SOURCE=live` with no hardware shows both sensors offline and logs the C1001 retry.
+- ARI-2: `tools/uart_loopback.py PORT BAUD` writes 5 patterns (all byte values, an LD2450-style frame, a C1001-style
+  frame, 0x55/0xAA, random) and checks each comes back; exit 0 pass, 1 fail, 2 can't open. Says "nothing came back"
+  (jumper / UART off) vs garbled (baud / mini UART). Accepts pyserial URLs: `loop://` passes on the Mac.
+- ARI-2: `scripts/setup_pi.sh` (on the Pi, `ssh -t pulse@pulse.local bash pulse/scripts/setup_pi.sh`): detects OS /
+  64-bit / desktop vs Lite (stops on Lite) / compositor / Chromium, then raspi-config serial console off + hardware on,
+  `enable_uart=1`, `dtoverlay=disable-bt`, `dtoverlay=uart3` exactly once in `[all]` (backups `*.bak-<time>` in
+  /boot/firmware), dialout, apt, venv, `.env` from .env.example if missing, `pulse.service`, kiosk autostart, blank
+  cursor, launchers, blanking off. Prints `CHANGED:`/`ok:` lines and a reboot list; never reboots. Ran once at 17:33.
+- ARI-2: sudo on the Pi asks for a password, so `pulse.service` is a systemd USER unit with linger
+  (`systemctl --user`, `journalctl --user -u pulse`); `deploy.sh` and `pi_logs.sh` never need sudo. ExecStart is
+  `.venv/bin/python -m pulse.main` (uvicorn from the venv, with Pulse's logging set up). Default sim; the Pi's own
+  `~/pulse/.env` overrides. Its `C1001_PORT` is still blank (created from the old .env.example): set
+  `C1001_PORT=/dev/ttyAMA3` there when going live.
+- ARI-2: `scripts/deploy.sh`: rsync (excludes .git, .venv, .env, recordings, __pycache__; `--delete` leaves those
+  alone on the Pi), `scripts/pi_venv.sh` (creates the venv, reinstalls only when requirements.txt's sha256 changes),
+  restarts the service, reloads the kiosk by killing Chromium. Checked on the fresh Pi (no venv, no service) and after.
+- ARI-2: kiosk = `scripts/kiosk.sh` from `~/.config/labwc/autostart` (Pi OS runs `labwc -m`, so this adds to the
+  desktop's autostart instead of replacing it). Waits for :8000, flock so one loop only, marks the profile's last exit
+  clean (no restore bubble), relaunches Chromium when it exits. Flags: kiosk, no error dialogs/infobars/first run,
+  no translate, no pinch, no swipe-back, basic password store (no keyring prompt), `--ozone-platform=wayland` when
+  `WAYLAND_DISPLAY` is set (started over ssh, Chromium otherwise tries X11 and exits).
+- ARI-2: EXIT chip in the status bar (top right, only when `GET /api/kiosk` says a kiosk is running, so never on a
+  laptop). Hold 1.5 s (short tap = toast "Hold EXIT to close Pulse"); `POST /api/kiosk/exit` only from 127.0.0.1/::1,
+  writes `$XDG_RUNTIME_DIR/pulse-kiosk.exit` and SIGTERMs Chromium; kiosk.sh sees the flag and stops. Reopen: desktop
+  icon (`ui/icon.svg`), Menu > Accessories > Pulse, or `pulse` in the Pi's Terminal (`scripts/pi_launchers.sh`, no
+  sudo). Not a contract change (REST only), no `v` bump. Checked on the Pi by hand: EXIT works, the icon works.
+- ARI-2: cursor hidden with a generated blank Xcursor theme (labwc has no hide-cursor option); the UI's own
+  `cursor: none` on coarse pointers stays as well. Touch is `mouseEmulation="yes"` (Pi OS default): check drawer
+  scrolling in ARI-5.
+- ARI-2: still to do: fps at `/?fps=1` on the Pi, both loopbacks (EE jumpers), Pi 5 V pins. 151 tests pass
+  (`test_kiosk.py` added: pidfile/flag handshake with a real child process, 403 for non-local exit).
