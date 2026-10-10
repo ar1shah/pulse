@@ -1,62 +1,67 @@
 # Status
 
 Update this at the end of every task: tick the box, add a one-line note, keep "Next up" current.
-Task ids match docs/PROMPTS.md. Hookup order is docs/BRINGUP.md (stages 0 to 7).
+Phase numbers and prompt ids (A1 to A6, B1 to B4) match docs/PROMPTS.md; the detailed boxes and measured values
+for each phase are in docs/BRINGUP.md.
+
+T5 to T9 and S1 to S7 were folded into the phases: T5 is A1, T6 is B1, T8 + T9 are A2, S1 is A3, S2 is B2,
+T7 + S4 are A4, S3 is B3, S6 is B4, S5 is A5, S7 is the optional buzzer in Phase 7.
 
 ## Next up
-Parts arrive about 3 PM Saturday (new Pi 4, LD2450, C1001).
-- CS #2: run T8 on the new Pi (setup script, service, kiosk, deploy).
-- CS #1: write the T5 parser, tools and tests meanwhile, so S1 is just plugging the sensor in.
-- EE: BRINGUP stages 0 and 1.
+Phase 1: EE does BRINGUP Phase 1 (inventory, photos, pin labels, connectors). Ari decides the SD card and starts
+A1 in the `ld2450` worktree. CS2 starts B1.
 
-## Done
+## Phase 0. Done (T0 to T4)
 - [x] T0 repo created, pushed, teammates added, SSH key on Pi
 - [x] T1 scaffold + data contract in code
 - [x] T2 server + sim mode + minimal fusion
 - [x] T3 radar UI
 - [x] T4 tap-a-dot card, contacts drawer, range buttons
 
-## Hookup (Saturday, parts arrive about 3 PM)
-- [ ] BRINGUP stages 0 to 2 (EE + CS #2)
-- [ ] T8 Pi setup script, systemd service, kiosk, deploy script, run on the new Pi
-- [ ] T9 UART loopback verified on Pi, UART3 device name recorded
+## Phase 1. Unbox + start the parsers
+- [ ] EE (manual): inventory, photos, pin labels, cable connectors, power supply
+- [ ] Ari (manual): SD card decision
+- [ ] A1 LD2450 parser, reader, LiveSource, dump tool (Ari, worktree `ld2450`)
+- [ ] B1 C1001 parser, reader, dump tool (CS2)
 
-## Lane A: sensors and fusion (CS #1)
-- [ ] T5 LD2450 parser + dump/record tool + UART loopback tool
-- [ ] S1 T5 live on the real LD2450 (BRINGUP stage 3): sign conventions confirmed, session recorded
-- [ ] T7 fusion hardening
-- [ ] S3 replay mode from recordings
-- [ ] S4 live integration + tuning
+## Phase 2. Pi + screen boot
+- [ ] EE (manual): screen on the DISPLAY port, screen power pins recorded, Pi boots to the desktop, touch works
+- [ ] Ari (manual): SD card flashed or moved, `ssh pulse@pulse.local` from the Mac with no password
+- [ ] CS2 (manual): `ssh-copy-id pulse@pulse.local` from CS2's laptop
 
-## Lane B: C1001 and AI (CS #2)
-- [ ] T6 C1001 parser (port of DFRobot library) + dump tool
-- [ ] S2 T6 live on the real C1001 (BRINGUP stage 4): vitals seen, phone/watch HR compared, session recorded
-- then S6 (listed after the gate)
+## Phase 3. Pi setup + serial ports
+- [ ] A2 Pi setup, kiosk, deploy, both UART loopbacks, UART3 device recorded (Ari)
+- [ ] EE (manual): loopback jumpers on and off, Pi 5 V pins measured
+- [ ] Ari (manual): A1 merged, B1 pulled, `scripts/deploy.sh` run
 
-## Lane C: hardware and demo (EE)
-- [ ] Power bank test
-- [ ] Handheld body
-- [ ] Demo panel
-- [ ] BRINGUP stages 5 and 7
-- [ ] Photos
+## Phase 4. Sensors live
+- [ ] EE (manual): power-only check, both sensor TX idle at about 3.3 V, then data wires
+- [ ] A3 LD2450 live: sign constants confirmed, session recorded, sample committed (Ari)
+- [ ] B2 C1001 live: vitals timed, HR compared, session recorded, sample committed (CS2)
 
-## Integration
-- [ ] BRINGUP stage 6: full app live
-- [ ] **Gate, 10 PM latest: live dots + live vitals on the screen.** After the gate: no new features, only S5,
-  polish, video.
+## Phase 5. Full app live: the gate (10 PM latest)
+- [ ] EE (manual): both sensors mounted side by side, same direction, same height
+- [ ] A4 live integration + fusion tuning (Ari)
+- [ ] B3 replay mode (CS2)
+- [ ] B4 command dashboard + Gemini sitrep + ElevenLabs read-aloud (CS2, separate files only)
+- [ ] **Gate: live dots + live vitals on the screen.** After the gate: no new features.
 
-## After the gate
-- [ ] S5 robustness (unplug a sensor, server restart, power bank)
-- [ ] S6 command dashboard + Gemini sitrep + ElevenLabs read-aloud (only if the gate passed)
-- [ ] S7 buzzer (only if everything else is done)
-- [ ] Rough demo video, recorded the moment live dots work
-- [ ] Rough Devpost submitted by midnight (stays editable)
+## Phase 6. Judge-proof
+- [ ] A5 break tests (Ari)
+- [ ] EE (manual): handheld body, cables secured, 15 min power bank test
+- [ ] All (manual): rough demo video on battery
 
-## Sunday (Oct 11)
-- [ ] Final demo video by 7:30 AM
-- [ ] Code freeze 8:30 AM
-- [ ] Devpost final 9:30 AM (deadline 10:00 AM): video attached, all members added with registration emails
-- [ ] Repo is PUBLIC (private = disqualified)
+## Phase 7. Saturday night
+- [ ] All (manual): demo script 3 times behind the panel
+- [ ] CS2 (Claude chat): Devpost draft
+- [ ] Ari (manual): Devpost project, team invited, rough submit by midnight, repo public
+- [ ] EE (manual): gallery photos
+- [ ] S7 buzzer (optional, only if everything else is done)
+
+## Phase 8. Sunday (Oct 11)
+- [ ] Final demo video by 7:30 AM (YouTube, unlisted)
+- [ ] Code freeze 8:30 AM, A6 pre-demo check (Ari)
+- [ ] Devpost final 9:30 AM (closes 10:00 AM): video, public repo, all members
 - [ ] Last commit before 11:00 AM
 
 ## Measured on hardware

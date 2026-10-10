@@ -16,6 +16,8 @@
 - SSH: `PI_HOST` env var, set to `pulse@pulse.local` (also in `.env`).
 - Set up key auth from your Mac once so scripts and Claude Code can SSH without a password:
   `ssh-copy-id $PI_HOST`
+- Network: venue Wi-Fi with a login page (captive portal or university login) won't work for the Pi. Put the Pi
+  and every laptop that needs to SSH in on the same phone hotspot.
 
 ## Wiring
 
@@ -30,7 +32,8 @@ Sensor TX goes to Pi RX. Sensor RX goes to Pi TX.
 | Linux device | `/dev/ttyAMA0` | Check with `ls -l /dev/ttyAMA*` after reboot (often ttyAMA3 or ttyAMA1) |
 | Baud | 256000 | 115200 |
 
-If the screen is powered from a GPIO 5 V pin, put both sensors on the other 5 V pin via a breadboard rail.
+If the screen takes a GPIO 5 V pin, run both sensors off the other 5 V pin via a breadboard rail and use any free
+GND (6, 9, 14, 20, 25, 30, 34, 39). Record the actual pins in docs/BRINGUP.md Phase 4.
 
 Before connecting a sensor: multimeter its TX pin, it should idle near 3.3 V, never 5 V.
 

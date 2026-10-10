@@ -9,20 +9,12 @@ architecture. But never break the demo path: sim mode must always run.
 
 ## Team and deadlines
 
-- Team of 3: CS #1 (sensors), CS #2 (Pi, C1001, AI), EE (hardware, power, enclosure, demo).
-- Devpost deadline Sunday Oct 11, 10:00 AM. GitHub commits stop 11:00 AM. The repo must be **public** at
-  submission (private = disqualified). Devpost needs a demo video and every member added with their
-  registration email.
-- Prize targets: Best Embedded Hack, Most "Useful" Hack, plus Best AI Hack, MLH Gemini API and MLH ElevenLabs
-  if S6 ships. Skip Presage.
-- **Gate: live dots + live vitals on the screen by 10 PM Saturday. After the gate, no new features**: only
-  robustness (S5), polish, and the video.
+- Team of 3: Ari (Pi + LD2450), CS2 (C1001 + AI sitrep), EE (hardware: screen, wiring, power, body, demo panel).
+- Devpost final Sun Oct 11, 10:00 AM. Commits stop 11:00 AM. The repo must be public at submission.
+- **Gate: live dots + live vitals on the screen by 10 PM Saturday. No new features after the gate.**
+- Work goes phase by phase: prompts in docs/PROMPTS.md, tick boxes and measured values in docs/BRINGUP.md.
 
 ## Hardware (details: docs/hardware.md, read it before touching pi/pulse/sensors/)
-
-- Hookup order is docs/BRINGUP.md (stages 0 to 7). Follow it; don't improvise wiring.
-- Power the Pi off before wiring or moving a jumper. Check a sensor's TX is 3.3 V (never 5 V) before
-  connecting it.
 
 - Raspberry Pi 4 Model B 2GB, Raspberry Pi OS 64-bit (desktop). SSH target is env `PI_HOST`.
 - Hosyond 7" DSI capacitive touchscreen, **800x480**. The UI is designed for exactly this size.
@@ -32,6 +24,10 @@ architecture. But never break the demo path: sim mode must always run.
   at 0.4 to 1.5 m, chest facing the sensor. UART3 at **115200**. Gives NO positions.
 
 The LD2450 is the scout (where are people), the C1001 is the medic (is this one breathing).
+
+Hardware safety, always:
+- Power the Pi off before connecting or disconnecting any wire or jumper.
+- Measure a sensor's TX pin idles at 3.3 V (never 5 V) before connecting it to the Pi.
 
 ## Architecture
 
@@ -75,7 +71,7 @@ Some of these are created by tasks in docs/PROMPTS.md; if one doesn't exist yet,
 
 ```bash
 # Mac setup (once)
-python3 -m venv .venv && source .venv/bin/activate && pip install -r pi/requirements.txt
+python3 -m venv .venv && source .venv/bin/activate && pip install -r pi/requirements-dev.txt
 
 # Run with fake sensors, open http://localhost:8000
 cd pi && PULSE_SOURCE=sim SIM_SCENARIO=demo python -m pulse.main
@@ -84,10 +80,10 @@ cd pi && PULSE_SOURCE=sim SIM_SCENARIO=demo python -m pulse.main
 cd pi && pytest -q
 
 # Ship to the Pi and restart the service + kiosk
-PI_HOST=pi@pulse.local scripts/deploy.sh
+PI_HOST=pulse@pulse.local scripts/deploy.sh
 
 # Pi logs
-PI_HOST=pi@pulse.local scripts/pi_logs.sh
+PI_HOST=pulse@pulse.local scripts/pi_logs.sh
 ```
 
 ## Rules

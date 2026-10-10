@@ -21,4 +21,5 @@ cd pi && PULSE_SOURCE=sim SIM_SCENARIO=demo python -m pulse.main
 - `docs/hardware.md`: parts, wiring, Pi config, sensor protocols
 - `docs/demo.md`: demo script and pitch claims
 - `docs/STATUS.md`: what's done and what's next
-- `docs/PROMPTS.md`: the Claude Code prompts we build from
+- `docs/BRINGUP.md`: hardware bring-up checklist, phase by phase, with owners and measured values
+- `docs/PROMPTS.md`: phase-by-phase playbook (who does what, and the Claude Code prompts)
