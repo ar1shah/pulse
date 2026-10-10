@@ -4,11 +4,11 @@ Update this at the end of every task: tick the box, add a one-line note, keep "N
 Task ids match docs/PROMPTS.md.
 
 ## Next up
-- T1 scaffold + contract
+- T2 server + sim mode + minimal fusion (PLAN)
 
 ## Friday night
 - [ ] T0 repo created, pushed, teammates added, SSH key on Pi
-- [ ] T1 scaffold + data contract in code
+- [x] T1 scaffold + data contract in code
 - [ ] T2 server + sim mode + minimal fusion
 - [ ] T3 radar UI
 - [ ] T4 tap-a-dot card, contacts drawer, range buttons
@@ -34,3 +34,9 @@ Task ids match docs/PROMPTS.md.
 - [ ] Backup demo video recorded
 
 ## Notes
+- T1: contract is in `pi/pulse/state.py` + `ui/contract.js`; `pi/tests/test_contract.py` checks the doc
+  example, the dataclass round trip, every violation kind, and that contract.js matches state.py.
+  Keep each `export const` in contract.js on one line (the test parses it).
+- T1: Mac venv is Python 3.12 (`.venv`, from Homebrew). `cd pi && ../.venv/bin/pytest -q` runs the tests.
+- T1: rounding the doc doesn't specify: t and contact times 2 dp, last_seen_s and age_s 1 dp.
+- T1: server isn't built yet (main.py is a placeholder), so there is no sim run to check until T2.
