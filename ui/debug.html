@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pulse debug</title>
+<style>
+  body { margin: 0; padding: 12px; background: #05080a; color: #9fe8b0; font: 14px/1.4 ui-monospace, Menlo, monospace; }
+  header { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .pill { padding: 2px 10px; border: 1px solid #2a4a38; border-radius: 10px; }
+  .ok { color: #7dff9a; border-color: #7dff9a; }
+  .bad { color: #ff7a6a; border-color: #ff7a6a; }
+  button { background: #0c1a14; color: #9fe8b0; border: 1px solid #2a4a38; padding: 4px 10px; font: inherit; cursor: pointer; }
+  button:hover { border-color: #7dff9a; }
+  pre { margin: 0; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<header>
+  <strong>PULSE /ws</strong>
+  <span id="conn" class="pill bad">connecting</span>
+  <span class="pill"><span id="rate">0.0</span> msg/s</span>
+  <span class="pill">source <span id="source">-</span></span>
+  <span class="pill">age <span id="age">-</span> ms</span>
+  <button data-gate="2">gate 2 m</button>
+  <button data-gate="4">gate 4 m</button>
+  <button data-gate="6">gate 6 m</button>
+  <button id="reset">reset contacts</button>
+</header>
+<pre id="out">waiting for data...</pre>
+<script>
+  const conn = document.getElementById("conn");
+  const out = document.getElementById("out");
+  let ws = null;
+  let latest = null;
+  let stamps = [];        // arrival times (ms) in the last second
+
+  function connect() {
+    ws = new WebSocket(`ws://${location.host}/ws`);
+    ws.onopen = () => { conn.textContent = "connected"; conn.className = "pill ok"; };
+    ws.onclose = () => {
+      conn.textContent = "disconnected, retrying"; conn.className = "pill bad";
+      setTimeout(connect, 1000);
+    };
+    ws.onerror = () => ws.close();
+    ws.onmessage = (ev) => {
+      stamps.push(performance.now());
+      try { latest = JSON.parse(ev.data); } catch { /* ignore bad frames */ }
+    };
+  }
+
+  function send(msg) {
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+  }
+  document.querySelectorAll("[data-gate]").forEach((b) =>
+    b.addEventListener("click", () => send({ type: "set_gate", max_range_m: Number(b.dataset.gate) })));
+  document.getElementById("reset").addEventListener("click", () => send({ type: "reset_contacts" }));
+
+  // Redraw a few times a second; the page stays cheap even at 10 msg/s.
+  setInterval(() => {
+    const now = performance.now();
+    stamps = stamps.filter((t) => now - t <= 1000);
+    document.getElementById("rate").textContent = stamps.length.toFixed(1);
+    if (!latest) return;
+    document.getElementById("source").textContent = latest.source;
+    document.getElementById("age").textContent = Math.max(0, Math.round(Date.now() - latest.t * 1000));
+    out.textContent = JSON.stringify(latest, null, 2);
+  }, 250);
+
+  connect();
+</script>
+</body>
+</html>
