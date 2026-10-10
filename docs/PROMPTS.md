@@ -156,8 +156,8 @@ Read CLAUDE.md, docs/data-contract.md, and the current ui/ code. Add interaction
 
 1) Tap a dot (hit radius at least 48 px, pick the nearest if overlapping) to open a card for that contact
    (bottom sheet or side panel, whatever fits 800x480 best). Card shows: contact number, range in m,
-   bearing like "12 deg L", MOVING or STILL, triage in plain words ("MOVING", "STILL, BREATHING,
-   REACH FIRST", "NOT ASSESSED"), time since first seen.
+   bearing like "12 deg L", MOVING or STILL, triage in plain words ("MOVING", "BREATHING",
+   "NOT ASSESSED"), time since first seen.
    - If this contact is locked: big heart bpm and breaths/min, "settling..." when null.
    - If not locked: an arrow and "Get within 1.5 m and aim at them", with the live distance to the lock zone.
    - The card follows the target id. If the target disappears: "SIGNAL LOST", close after 3 s.

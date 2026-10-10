@@ -6,7 +6,7 @@ export const CONTRACT_VERSION = 1;
 
 export const SOURCES = ["sim", "live", "replay"];
 export const TRIAGE = {"GREEN": "green", "AMBER": "amber", "GRAY": "gray"};
-export const TRIAGE_LABELS = {"green": "MOVING", "amber": "STILL, BREATHING, REACH FIRST", "gray": "NOT ASSESSED"};
+export const TRIAGE_LABELS = {"green": "MOVING", "amber": "BREATHING", "gray": "NOT ASSESSED"};
 
 export const SENSOR_NAMES = ["ld2450", "c1001"];
 export const SENSOR_STATUSES = ["ok", "warming", "stale", "offline", "sim"];

@@ -117,7 +117,7 @@ Unknown or invalid messages are ignored and logged. Selection of a dot is UI-onl
    closest to 0 deg. That track gets `locked: true` and `vitals.target_id`.
 8. **Triage**:
    - `green`: moving.
-   - `amber`: not moving, locked, C1001 presence, and `breath_rpm` not null. Label: "still, breathing, reach first".
+   - `amber`: not moving, locked, C1001 presence, and `breath_rpm` not null. Label: "breathing".
    - `gray`: anything else (not assessed yet).
 9. **Vitals sanity**: values outside 10 to 25 (breath) or 60 to 100 (heart), or 0, become null.
 10. **Contacts**: one entry per track id per appearance; update `last_seen`, `triage`, and the last
