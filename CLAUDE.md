@@ -7,7 +7,22 @@ shows a radar sweep with one dot per person. Walk up to a dot, aim, and it locks
 This is a hackathon. Submissions close Sunday morning. A working, good-looking demo beats clean
 architecture. But never break the demo path: sim mode must always run.
 
+## Team and deadlines
+
+- Team of 3: CS #1 (sensors), CS #2 (Pi, C1001, AI), EE (hardware, power, enclosure, demo).
+- Devpost deadline Sunday Oct 11, 10:00 AM. GitHub commits stop 11:00 AM. The repo must be **public** at
+  submission (private = disqualified). Devpost needs a demo video and every member added with their
+  registration email.
+- Prize targets: Best Embedded Hack, Most "Useful" Hack, plus Best AI Hack, MLH Gemini API and MLH ElevenLabs
+  if S6 ships. Skip Presage.
+- **Gate: live dots + live vitals on the screen by 10 PM Saturday. After the gate, no new features**: only
+  robustness (S5), polish, and the video.
+
 ## Hardware (details: docs/hardware.md, read it before touching pi/pulse/sensors/)
+
+- Hookup order is docs/BRINGUP.md (stages 0 to 7). Follow it; don't improvise wiring.
+- Power the Pi off before wiring or moving a jumper. Check a sensor's TX is 3.3 V (never 5 V) before
+  connecting it.
 
 - Raspberry Pi 4 Model B 2GB, Raspberry Pi OS 64-bit (desktop). SSH target is env `PI_HOST`.
 - Hosyond 7" DSI capacitive touchscreen, **800x480**. The UI is designed for exactly this size.
@@ -42,7 +57,7 @@ three plus the tests in the same commit, and bump `v`.
 ```
 CLAUDE.md
 README.md
-docs/            data-contract.md, hardware.md, demo.md, STATUS.md, PROMPTS.md, screenshots/
+docs/            data-contract.md, hardware.md, BRINGUP.md, demo.md, STATUS.md, PROMPTS.md, screenshots/
 pi/
   requirements.txt
   pulse/         main.py, state.py, fusion.py, sensors/{ld2450,c1001,sim}.py

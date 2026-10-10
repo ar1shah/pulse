@@ -1,37 +1,81 @@
 # Status
 
 Update this at the end of every task: tick the box, add a one-line note, keep "Next up" current.
-Task ids match docs/PROMPTS.md.
+Task ids match docs/PROMPTS.md. Hookup order is docs/BRINGUP.md (stages 0 to 7).
 
 ## Next up
-- T5/T6 (sensor lane: LD2450 and C1001 parsers + dump tools), T7 fusion hardening. T5/T6 can run in a second worktree.
+Parts arrive about 3 PM Saturday (new Pi 4, LD2450, C1001).
+- CS #2: run T8 on the new Pi (setup script, service, kiosk, deploy).
+- CS #1: write the T5 parser, tools and tests meanwhile, so S1 is just plugging the sensor in.
+- EE: BRINGUP stages 0 and 1.
 
-## Friday night
+## Done
 - [x] T0 repo created, pushed, teammates added, SSH key on Pi
 - [x] T1 scaffold + data contract in code
 - [x] T2 server + sim mode + minimal fusion
 - [x] T3 radar UI
 - [x] T4 tap-a-dot card, contacts drawer, range buttons
-- [ ] T5 LD2450 parser + dump/record tool + UART loopback tool
-- [ ] T6 C1001 parser (port of DFRobot library) + dump tool
-- [ ] T7 fusion hardening
-- [ ] T8 Pi setup script, systemd service, kiosk, deploy script
+
+## Hookup (Saturday, parts arrive about 3 PM)
+- [ ] BRINGUP stages 0 to 2 (EE + CS #2)
+- [ ] T8 Pi setup script, systemd service, kiosk, deploy script, run on the new Pi
 - [ ] T9 UART loopback verified on Pi, UART3 device name recorded
 
-## Saturday
-- [ ] S1 LD2450 live bring-up, sign conventions confirmed, session recorded
-- [ ] S2 C1001 live bring-up, vitals seen, session recorded
+## Lane A: sensors and fusion (CS #1)
+- [ ] T5 LD2450 parser + dump/record tool + UART loopback tool
+- [ ] S1 T5 live on the real LD2450 (BRINGUP stage 3): sign conventions confirmed, session recorded
+- [ ] T7 fusion hardening
 - [ ] S3 replay mode from recordings
 - [ ] S4 live integration + tuning
-- [ ] **6 PM gate: live dots + live vitals on the screen**
-- [ ] S5 crowd test + robustness (unplug a sensor, power bank)
-- [ ] S6 command dashboard + AI sitrep (reach)
-- [ ] S7 buzzer (reach)
 
-## Sunday
-- [ ] Code freeze
-- [ ] Devpost submitted
-- [ ] Backup demo video recorded
+## Lane B: C1001 and AI (CS #2)
+- [ ] T6 C1001 parser (port of DFRobot library) + dump tool
+- [ ] S2 T6 live on the real C1001 (BRINGUP stage 4): vitals seen, phone/watch HR compared, session recorded
+- then S6 (listed after the gate)
+
+## Lane C: hardware and demo (EE)
+- [ ] Power bank test
+- [ ] Handheld body
+- [ ] Demo panel
+- [ ] BRINGUP stages 5 and 7
+- [ ] Photos
+
+## Integration
+- [ ] BRINGUP stage 6: full app live
+- [ ] **Gate, 10 PM latest: live dots + live vitals on the screen.** After the gate: no new features, only S5,
+  polish, video.
+
+## After the gate
+- [ ] S5 robustness (unplug a sensor, server restart, power bank)
+- [ ] S6 command dashboard + Gemini sitrep + ElevenLabs read-aloud (only if the gate passed)
+- [ ] S7 buzzer (only if everything else is done)
+- [ ] Rough demo video, recorded the moment live dots work
+- [ ] Rough Devpost submitted by midnight (stays editable)
+
+## Sunday (Oct 11)
+- [ ] Final demo video by 7:30 AM
+- [ ] Code freeze 8:30 AM
+- [ ] Devpost final 9:30 AM (deadline 10:00 AM): video attached, all members added with registration emails
+- [ ] Repo is PUBLIC (private = disqualified)
+- [ ] Last commit before 11:00 AM
+
+## Measured on hardware
+Fill in as BRINGUP.md asks for each value, and copy the final ones into docs/hardware.md. Fields were taken
+from PROMPTS.md and hardware.md; add any BRINGUP.md asks to record that are missing here.
+
+- Pi: user@host ____ / OS ____ / session + compositor ____ / Chromium binary ____
+- UART0 loopback (pin 8 to 10, 256000): ____
+- UART3 device name ____ / loopback (pin 7 to 29, 115200): ____
+- LD2450 TX idle voltage ____ V / 5 V pin used ____
+- LD2450 x sign (holder's left is raw +/-) ____ / speed sign (approaching is raw +/-) ____
+- LD2450 targets seen at once (max 3?) ____ / frames/s ____ / bad frames in 2 min ____
+- C1001 TX idle voltage ____ V / 5 V pin used ____
+- C1001 time to presence ____ s / breathing ____ s / heart ____ s
+- C1001 vs phone/watch HR: sensor ____ bpm, watch ____ bpm, distance ____ m
+- C1001 working distance range ____ m
+- Power bank (model, capacity): ____ / `vcgencmd get_throttled` idle ____, under load ____ / runtime ____
+- UI fps on the Pi (`/?fps=1`) ____ / touch: drawer scrolls ____, taps at screen edges ____
+- Live: lock acquired in ____ s / dot jitter ____ / ids swap ____
 
 ## Notes
 - T1: contract is in `pi/pulse/state.py` + `ui/contract.js`; `pi/tests/test_contract.py` checks the doc

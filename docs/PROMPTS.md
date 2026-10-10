@@ -17,12 +17,27 @@ Copy each prompt into Claude Code from the repo root. Task ids match docs/STATUS
 - If a task goes sideways: `Esc` to interrupt, tell it what's wrong in one sentence. If it's really lost,
   `git checkout .`, `/clear`, and rerun the prompt with one extra line about what went wrong.
 
-Order for tonight: **T0, T1, T2, T3, T4**, with **T5, T6** in a second session once T2 is merged,
-then **T7, T8, T9**. If you only get through T0 to T3 tonight, that's still a great night.
+**Order from here (T0 to T4 are done).** Hookup order is docs/BRINGUP.md; docs/STATUS.md has the checklist.
+
+1. **Hookup:** BRINGUP stages 0 to 2 (EE + CS #2, with **H0**), **T8** Pi setup on the new Pi, **T9** loopback.
+   While T8 runs, CS #1 writes the T5 parser code, which needs no hardware.
+2. **Lane A (CS #1):** **T5** parser + tools, then **S1** (T5 live on the real LD2450, BRINGUP stage 3), then
+   **T7**, **S3**, **S4**.
+3. **Lane B (CS #2):** **T6** C1001 port, then **S2** (T6 live on the real C1001, BRINGUP stage 4), then **S6**
+   (only after the gate).
+4. **Lane C (EE):** power bank test, handheld body, demo panel, BRINGUP stages 5 and 7, photos. No prompts.
+5. **BRINGUP stage 6: full app live.** This is also S4's acceptance checklist.
+6. **Gate, 10 PM latest: live dots + live vitals on the screen.** After the gate there are no new features:
+   only **S5**, polish and the video. **S6** only if the gate passed, **S7** only if everything else is done.
+
+**Two people can bring up the two sensors at the same time on the one Pi.** The sensors use separate UARTs
+(LD2450 on `/dev/ttyAMA0`, C1001 on UART3), so use two SSH sessions and stop the app service first
+(`sudo systemctl stop pulse`), because the service holds the ports. Don't start it again until both people
+are done.
 
 ---
 
-## Friday night
+## Setup and build (T0 to T9)
 
 ### T0. Create the repo (manual, ~5 min)
 
@@ -295,30 +310,79 @@ device name into docs/hardware.md and .env.example, and restart pulse.service. U
 
 ---
 
-## Saturday (parts arrive)
+## Hardware (parts arrive about 3 PM Saturday)
 
-### S1. LD2450 live bring-up
+### H0. Hookup walkthrough (BRINGUP stages 1 and 2, over SSH)
 
-```
-The LD2450 is wired per docs/hardware.md and I've checked its TX idles at 3.3 V. Over SSH: stop
-pulse.service and run tools/ld2450_dump.py /dev/ttyAMA0 --multi. Walk me through a test: I'll stand
-straight ahead at about 1 m, then step to MY left, then walk toward the sensor, then bring two friends in.
-From what you see, confirm or flip the x and speed sign constants so the output matches the contract
-(negative x = holder's left, negative speed = approaching), confirm we get 3 targets, and fix the parser
-if anything disagrees with the datasheet. Record a 2-minute session to recordings/ld2450_session1.jsonl
-and copy a 20-second slice to recordings/sample_ld2450.jsonl (committed). Update docs/hardware.md
-with what we confirmed, docs/STATUS.md, commit.
-```
-
-### S2. C1001 live bring-up
+Run this with the Pi on the desk and a person at the keyboard who can touch the hardware (EE + CS #2).
 
 ```
-The C1001 is wired per docs/hardware.md. Over SSH: stop pulse.service and run tools/c1001_dump.py on the
-UART3 device. I'll sit still about 1 m in front of it, chest facing it. Tell me how long until presence,
-breathing and heart rate appear, and whether the values look sane. If nothing arrives, debug the init
-sequence against the DFRobot library. Record a 3-minute session to recordings/c1001_session1.jsonl and a
-30-second sample to recordings/sample_c1001.jsonl (committed). Write the measured settle time into
-docs/hardware.md, update docs/STATUS.md, commit.
+Read CLAUDE.md, docs/BRINGUP.md and docs/hardware.md. Walk us through docs/BRINGUP.md stages 1 and 2 over
+SSH to $PI_HOST, one checklist item at a time:
+
+- For each item: say what it is, run the checks you can run over SSH, show the output, and say whether it
+  passed. For anything physical, say exactly what to do and wait.
+- Before ANY power or wiring step (connecting or disconnecting a sensor, moving a jumper, connecting 5 V,
+  changing the supply) stop and wait for my explicit OK. Wiring happens with the Pi powered off.
+- Never reboot the Pi, and never run anything destructive over SSH, without asking first.
+- Don't batch items or skip ahead. If a check fails, stop and diagnose before moving on.
+- Write every recorded value into docs/hardware.md (device names, wiring, anything that was "check after
+  reboot") and into the "Measured on hardware" section of docs/STATUS.md as we go. Tick the stages in
+  docs/STATUS.md and commit at the end.
+```
+
+### S1. LD2450 live bring-up (T5 live, BRINGUP stage 3)
+
+```
+Read CLAUDE.md, docs/hardware.md and docs/BRINGUP.md stage 3. The LD2450 is on the desk.
+
+First check whether T5 is done (parser, reader, tools/ld2450_dump.py, tools/uart_loopback.py, tests passing;
+see docs/STATUS.md). If it isn't, do the T5 work first: parser + tests, then the reader and the two tools.
+Don't touch the sensor until the tests are green.
+
+Then follow BRINGUP stage 3 item by item, waiting for my OK before every power or wiring step:
+1. Voltage check before the data wires: tell me to multimeter the LD2450 TX pin and report the reading.
+   It must idle near 3.3 V. Don't let me connect the data wires until I've reported it (5 V on TX can
+   kill the Pi's GPIO).
+2. Over SSH, stop pulse.service and run tools/ld2450_dump.py /dev/ttyAMA0 --multi.
+3. Walk me through a test: I'll stand straight ahead at about 1 m, then step to MY left, then walk toward the
+   sensor, then bring two friends in.
+4. From what you see, confirm or flip the x and speed sign constants so the output matches the contract
+   (negative x = holder's left, negative speed = approaching), confirm we get 3 targets, and fix the parser
+   if anything disagrees with the datasheet.
+5. Record a 2-minute session to recordings/ld2450_session1.jsonl and copy a 20-second slice to
+   recordings/sample_ld2450.jsonl (committed).
+6. Record the measured values in docs/hardware.md and the "Measured on hardware" section of
+   docs/STATUS.md. Tick S1 (and T5) in docs/STATUS.md, commit.
+```
+
+### S2. C1001 live bring-up (T6 live, BRINGUP stage 4)
+
+```
+Read CLAUDE.md, docs/hardware.md and docs/BRINGUP.md stage 4. The C1001 is on the desk. Note the time now:
+the port gets a 1.5 hour budget from the moment the sensor is wired.
+
+First check whether T6 is done (parser ported from DFRobot_HumanDetection, reader, tools/c1001_dump.py, tests
+passing; see docs/STATUS.md). If it isn't, do the T6 work first, and don't touch the sensor until the tests
+are green.
+
+Then follow BRINGUP stage 4 item by item, waiting for my OK before every power or wiring step:
+1. Voltage check before the data wires: tell me to multimeter the C1001 TX pin and report the reading. It
+   must idle near 3.3 V. Don't let me connect the data wires until I've reported it.
+2. Over SSH, stop pulse.service and run tools/c1001_dump.py on the UART3 device. I'll sit still about 1 m in
+   front of it, chest facing it. Tell me how long until presence, breathing and heart rate appear, and
+   whether the values look sane. If nothing arrives, debug the init sequence against the DFRobot library.
+3. Heart rate comparison: while I sit still, I'll read my heart rate from a phone or watch. Record the
+   sensor's value and mine side by side at a few moments. Don't tune anything to make them match; the
+   sensor clamps to 60 to 100 bpm, so just record the difference honestly.
+4. Record a 3-minute session to recordings/c1001_session1.jsonl and a 30-second sample to
+   recordings/sample_c1001.jsonl (committed).
+5. Write the measured settle time and the comparison into docs/hardware.md and the "Measured on hardware"
+   section of docs/STATUS.md. Tick S2 (and T6), commit.
+
+Fallback: if the port still isn't producing valid vitals after 1.5 hours, stop and say so. Then switch to the
+ESP32 fallback in docs/hardware.md: flash DFRobot's Arduino example onto an ESP32, print JSON over USB
+serial, and read that on the Pi in place of the UART reader. Note the switch in docs/STATUS.md.
 ```
 
 ### S3. Replay mode
@@ -337,7 +401,11 @@ Deploy with PULSE_SOURCE=live and both sensors connected. Watch the snapshots (d
 over SSH) while I run the demo script from docs/demo.md behind a panel. Tell me what's wrong: dot jitter,
 ids swapping, the hidden person fading, lock not acquiring, vitals attaching to the wrong dot. Propose
 threshold changes (smoothing, association gate, hold time, lock cone) with your reasoning, apply the ones I
-approve as named constants, and add regression tests using the recordings. Update docs/STATUS.md, commit.
+approve as named constants, and add regression tests using the recordings.
+
+Acceptance: walk docs/BRINGUP.md stage 6 (full app live) item by item. S4 isn't done until every item passes
+or has a recorded reason it doesn't. Report which items failed. This is the 10 PM gate: live dots and live
+vitals on the screen. Update docs/STATUS.md, commit.
 ```
 
 ### S5. Crowd test and robustness
@@ -349,16 +417,31 @@ recovers by itself); a busy room (tune default gate for the demo, maybe a "demo 
 (check vcgencmd get_throttled under load). Report results, update docs/STATUS.md, commit.
 ```
 
-### S6. Command dashboard + AI sitrep (reach, only after the 6 PM gate)
+### S6. Command dashboard + Gemini sitrep + ElevenLabs read-aloud (only if the 10 PM gate passed)
 
 ```
 Build ui/command.html for a laptop on the same network: a larger radar view plus a contacts table, live from
-/ws. Add POST /api/sitrep: send the current contacts and targets (no raw frames) to an LLM with a strict system
-prompt: write a short radio-style situation report (number of contacts, their status, range and bearing from
-the operator), no medical claims, no guessing beyond the data. API key from env LLM_API_KEY, never logged or
-committed. If the call fails or there's no key, return a deterministic template-based sitrep from the same
-data so the button always works. A big "Generate sitrep" button on command.html shows the text.
-Update docs/STATUS.md, commit.
+/ws.
+
+Sitrep: add POST /api/sitrep. Send the current contacts and targets (no raw frames) to the Gemini API with a
+strict system prompt: write a short radio-style situation report (number of contacts, their status, range and
+bearing from the operator), no medical claims, no guessing beyond the data. API key from env GEMINI_API_KEY.
+Check the current Gemini API docs for the endpoint and model name instead of guessing. A big "Generate
+sitrep" button on command.html shows the text.
+
+Read aloud: add a "Read aloud" button that plays the sitrep like a radio call using ElevenLabs
+text-to-speech, key from env ELEVENLABS_API_KEY. Call ElevenLabs from the server (for example
+POST /api/sitrep/speech returning audio) so the key never reaches the browser, and check their current docs
+for the endpoint.
+
+Fallbacks, so both buttons always work: if GEMINI_API_KEY is missing or the call fails, return a
+deterministic template-based sitrep built from the same data. If ELEVENLABS_API_KEY is missing or the call
+fails, the button reads the sitrep with the browser's built-in speech instead.
+
+Rules: no new runtime dependencies (use the standard library for the HTTP calls); outbound calls run off the
+server loop with a short timeout, so a slow API never stalls /ws; keys are never logged, never in an error
+message, and never committed (.env.example holds blank placeholders only). Add tests for the template
+fallback and the missing-key paths with the network mocked. Update docs/STATUS.md, commit.
 ```
 
 ### S7. Buzzer (reach)
@@ -388,7 +471,10 @@ find the root cause, fix it, add a regression test, and tell me in two sentences
 **Before the code freeze:**
 ```
 Pre-demo check: run all tests, run sim and replay, deploy to the Pi, and walk the demo script in docs/demo.md
-against the code. List anything that could break in front of a judge, ranked, and fix the top items with my OK.
+against the code. Also confirm the repo is public (`gh repo view --json visibility,url`; private means we are
+disqualified, so if it says PRIVATE tell me and I'll change it myself) and that the README explains how to run
+sim mode from a clean clone, in a few lines a stranger can follow. List anything that could break in front of
+a judge, ranked, and fix the top items with my OK.
 ```
 
 ---
