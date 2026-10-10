@@ -1,18 +1,60 @@
 # Pulse playbook
 
-One phase at a time. Each phase says what every person does, whether it's a **[Claude Code]** prompt, a
-**[Manual]** step, or **[Claude chat]** (the hackathon Project on claude.ai). Nothing here needs Cowork.
+> # >>> WE ARE HERE: PHASE 1 (Unbox + start the parsers) <<<
+>
+> Jump to the phase marked `<<< WE ARE HERE` below. Find your name in its table, do your rows, tick your boxes
+> in that phase's checklist. When the phase's **Sync** box is ticked, whoever ticked it moves both
+> `WE ARE HERE` markers (this banner and the phase heading) to the next phase, updates the top of
+> `docs/STATUS.md`, and pushes.
 
-The tick boxes for every phase live in `docs/BRINGUP.md` with the same phase numbers. A phase is done when its
-"Sync" box there is ticked; then everyone moves to the next phase together.
+This is the one file that says **what to do**. Every phase has: a "who does what" table, the prompts, and a
+checklist. Each step is tagged **[Claude Code]** (paste the prompt into Claude Code), **[Manual]** (do it by hand,
+steps included) or **[Claude chat]** (the hackathon Project on claude.ai). Nothing needs Cowork.
+`docs/STATUS.md` says **where we are**: current phase, what's done, measured numbers, notes.
 
 **People**
-- **Ari (CS):** Pi setup + LD2450 lane
-- **CS2:** C1001 lane + AI sitrep
+- **Ari (CS):** Pi setup + LD2450 lane. Prompts `ARI-1` to `ARI-6`
+- **Alex (CS):** C1001 lane + replay + AI sitrep. Prompts `ALEX-1` to `ALEX-4`
 - **EE:** everything physical: screen, wiring, power, multimeter, handheld body, demo panel
 
 **Deadlines:** Devpost final Sun Oct 11 **10:00 AM**. Commits stop **11:00 AM**. Repo **public** at submission.
 **Gate:** live dots + live vitals on the screen by **10 PM Sat** at the latest. After the gate: no new features.
+
+**Hardware rules, always:** power OFF before plugging or unplugging any wire (Pi: `sudo shutdown now`, wait for
+the green LED to stop, unplug). Pi GPIO is 3.3 V only: measure a sensor's TX pin before connecting it.
+
+---
+
+## Alex: start here
+
+1. Get the code and run it with fake data:
+   ```bash
+   git clone https://github.com/ar1shah/pulse && cd pulse
+   python3 -m venv .venv && .venv/bin/pip install -r pi/requirements-dev.txt
+   cd pi && PULSE_SOURCE=sim SIM_SCENARIO=demo ../.venv/bin/python -m pulse.main
+   # open http://localhost:8000 (radar) or http://localhost:8000/debug (raw data)
+   ```
+   Tests: `cd pi && ../.venv/bin/pytest -q`.
+2. Have Claude Code installed and logged in. Run `claude` from the repo root; it reads `CLAUDE.md` by itself.
+3. Your work is every row and prompt labeled **Alex** / `ALEX-n` below. Right now that's **ALEX-1** in Phase 1.
+4. Git: `git pull --rebase` before you start a prompt and before you push. Commit and push when each prompt is done.
+5. SSH key for the Pi (do it once the Pi is up in Phase 2):
+   ```bash
+   ls ~/.ssh/id_ed25519.pub || ssh-keygen -t ed25519 -C "alex"   # Enter for defaults, Enter twice for no passphrase
+   ssh-copy-id pulse@pulse.local                                   # Pi password one last time
+   ssh pulse@pulse.local                                           # should log in with no password
+   ```
+   The Pi and your laptop must be on the same network (the phone hotspot, see Phase 2).
+
+**Your prompts at a glance**
+
+| Phase | Prompt | What it builds |
+| --- | --- | --- |
+| 1 to 3 | ALEX-1 | C1001 parser, reader, dump tool (no hardware needed) |
+| 4 | ALEX-2 | C1001 live on the real sensor, record a session |
+| 5 | ALEX-3 | Replay mode: real recordings on any laptop |
+| 5 to 6 | ALEX-4 | Laptop command dashboard + Gemini sitrep + ElevenLabs read-aloud |
+| 7 | [Claude chat] | Devpost draft text |
 
 ---
 
@@ -24,7 +66,7 @@ Everything below works on a laptop with fake data.
 - **Data contract in code:** `pi/pulse/state.py` + `ui/contract.js`, with tests that keep them matched.
 - **Server + sim mode:** FastAPI on :8000, WebSocket `/ws` at 10 Hz, `/api/snapshot`, `/debug` page. Sim scenarios
   `demo` (one sitter behind the wall + a walker) and `random`. Basic fusion (tracking, lock cone, triage, contacts).
-  Data sources plug in through `pi/pulse/sources.py`; `live` was wired up in A1, `replay` is still a stub.
+  Data sources plug in through `pi/pulse/sources.py`; `live` was wired up in ARI-1, `replay` is still a stub.
 - **Radar UI:** flat dark 800x480 radar, sweep, dots by triage, held dots fade, vitals panel, NO SIGNAL overlay.
 - **Interactions:** tap a dot for its card (range, bearing, status, vitals or "get within 1.5 m"), contacts drawer,
   2 / 4 / 6 m range buttons, hold the PULSE wordmark to reset.
@@ -44,17 +86,19 @@ http://localhost:8000 (or `/debug`). Tests: `cd pi && ../.venv/bin/pytest -q`.
 
 ---
 
-## Phase 1. Unbox + start the parsers (about 15 min)
+## Phase 1. Unbox + start the parsers (about 15 min)   <<< WE ARE HERE
+
+> **>>> CURRENT PHASE <<<**
 
 | Who | Does |
 | --- | --- |
-| EE | [Manual] BRINGUP Phase 1: inventory, photos, pin labels, cable connectors, pick the power supply |
-| Ari | [Manual] SD card: decided, a new card flashed fresh. [Claude Code] **A1**: done, on `main` |
-| CS2 | [Claude Code] start **B1**, let it run |
+| EE | [Manual] Phase 1 checklist: inventory, photos, pin labels, cable connectors, pick the power supply |
+| Ari | [Manual] SD card: decided, a new card flashed fresh. [Claude Code] **ARI-1**: done, on `main` |
+| Alex | [Claude Code] start **ALEX-1**, let it run |
 
 The parser prompts need no hardware. They run in the background through Phases 2 and 3.
 
-### A1. LD2450 parser, reader, dump tool [Claude Code, Ari] (done, on `main`)
+### ARI-1. LD2450 parser, reader, dump tool [Claude Code, Ari] (done, on `main`)
 
 ```
 Read CLAUDE.md, docs/hardware.md (LD2450 section), pi/pulse/sources.py and pi/pulse/sensors/ld2450.py.
@@ -74,7 +118,7 @@ Read CLAUDE.md, docs/hardware.md (LD2450 section), pi/pulse/sources.py and pi/pu
    ld2450(now), c1001(now)): an Ld2450Reader on env LD2450_PORT (default /dev/ttyAMA0), and a C1001 reader on env
    C1001_PORT that is imported lazily
    (`from .sensors.c1001 import C1001Reader`). If that import fails or the class doesn't exist yet, the C1001 side
-   reports offline. CS2 is writing C1001Reader in parallel with this interface:
+   reports offline. Alex is writing C1001Reader in parallel with this interface:
    C1001Reader(port, baud=115200), .start(), .stop(), .latest(now) -> (C1001Reading | None, status).
    PULSE_SOURCE=live uses LiveSource (make_source); replay stays a stub.
 3) tools/ld2450_dump.py PORT: live table (x, y, range, angle, speed per target), frames/sec, bad frame count.
@@ -86,7 +130,7 @@ Read CLAUDE.md, docs/hardware.md (LD2450 section), pi/pulse/sources.py and pi/pu
 Run all tests, update docs/STATUS.md, commit on this branch.
 ```
 
-### B1. C1001 parser, reader, dump tool [Claude Code, CS2]
+### ALEX-1. C1001 parser, reader, dump tool [Claude Code, Alex]
 
 ```
 Read CLAUDE.md, docs/hardware.md (C1001 section) and pi/pulse/sensors/c1001.py.
@@ -110,6 +154,17 @@ Update the C1001 section of docs/hardware.md with the real frame format and comm
 lines you ported. Run all tests, update docs/STATUS.md, commit.
 ```
 
+### Phase 1 checklist
+
+- [ ] [EE] Inventory: Pi 4, LD2450 + cable, C1001 + cable, screen + ribbon, 5 V 3 A supply, microSD
+- [ ] [EE] Photo every part on the table (Devpost gallery)
+- [ ] [EE] Pin labels on each sensor. LD2450 order: ______ C1001 order: ______
+- [ ] [EE] Sensor cable connectors: do lab female jumpers fit? If not, plan: ______
+- [x] [Ari] SD card decision: **new card, flashed fresh** with Raspberry Pi Imager (the loaner's card is not used)
+- [x] [Ari] ARI-1 done (committed straight to `main`, no worktree)
+- [ ] [Alex] ALEX-1 started
+- [ ] **Sync:** parts accounted for, both parser sessions running
+
 ---
 
 ## Phase 2. Pi + screen boot (about 30 min)
@@ -118,7 +173,7 @@ lines you ported. Run all tests, update docs/STATUS.md, commit.
 | --- | --- |
 | EE | [Manual] Screen onto the Pi (below), SD card in, bench power on |
 | Ari | [Manual] Pi Imager if needed, SSH from the Mac (below) |
-| CS2 | Keep B1 going. [Manual] once the Pi is up: `ssh-copy-id pulse@pulse.local` from your laptop |
+| Alex | Keep ALEX-1 going. [Manual] once the Pi is up: `ssh-copy-id pulse@pulse.local` from your laptop |
 
 ### EE: screen hookup [Manual]
 
@@ -127,7 +182,7 @@ lines you ported. Run all tests, update docs/STATUS.md, commit.
 2. Ribbon in with the contacts facing the way the screen's instructions show, push the latch down. Same at the
    screen end.
 3. If the screen also has 5V/GND jumper wires, they go to GPIO header pins. **Write down which pins they use** in
-   BRINGUP Phase 2; the sensor wiring adapts around them.
+   the Phase 2 checklist; the sensor wiring adapts around them.
 4. Screw on standoffs if included, SD card in, plug in the 5 V 3 A supply.
 
 ### Ari: SD card + SSH [Manual]
@@ -150,17 +205,31 @@ ssh-copy-id pulse@pulse.local    # only if it asked for a password
 hostname -I                      # on the Pi: note the IP as a backup for PI_HOST
 ```
 
+### Phase 2 checklist
+
+- [ ] [EE] Ribbon in the DISPLAY port (not CAMERA), both latches closed
+- [ ] [EE] Screen power wires on GPIO pins (if any): 5 V pin ______ GND pin ______
+- [ ] [Ari] New SD card flashed (64-bit desktop, hostname `pulse`, user `pulse`, SSH key, hotspot Wi-Fi)
+- [ ] [EE] Pi boots, desktop shows on the 7" screen
+- [ ] [EE] Tap the screen, including the corners: touch registers
+- [ ] [Ari] `ssh pulse@pulse.local` works from the Mac with no password
+- [ ] [Alex] `ssh pulse@pulse.local` works from Alex's laptop with no password
+- [ ] [Ari] `vcgencmd get_throttled` = `0x0` on the bench supply
+- [ ] [Ari] `vcgencmd measure_temp` under 70 C idle: ______ C
+- [ ] [Ari] Pi IP from `hostname -I`: ______
+- [ ] **Sync:** Pi on the screen and reachable over SSH from both CS laptops
+
 ---
 
 ## Phase 3. Pi setup + serial ports (about 30 min)
 
 | Who | Does |
 | --- | --- |
-| Ari | [Claude Code] **A2** (main checkout, separate session from A1) |
-| EE | [Manual] Loopback jumpers when A2 asks; multimeter the Pi's 5 V pins; start the demo panel |
-| CS2 | Keep B1 going |
+| Ari | [Claude Code] **ARI-2** (main checkout, separate session from ARI-1) |
+| EE | [Manual] Loopback jumpers when ARI-2 asks; multimeter the Pi's 5 V pins; start the demo panel |
+| Alex | Keep ALEX-1 going |
 
-### A2. Pi setup, kiosk, deploy, loopback [Claude Code, Ari]
+### ARI-2. Pi setup, kiosk, deploy, loopback [Claude Code, Ari]
 
 ```
 Read CLAUDE.md and docs/hardware.md. The Pi is reachable at $PI_HOST (pulse@pulse.local) with key auth.
@@ -181,19 +250,34 @@ Write:
 - scripts/pi_logs.sh: tail the service journal.
 
 Then do it for real: deploy, run setup_pi.sh, show me the output, and ask before rebooting.
-After the reboot, walk me through docs/BRINGUP.md Phase 3 one item at a time:
+After the reboot, walk me through the Phase 3 checklist in docs/PLAYBOOK.md one item at a time:
 - Tell me to shut the Pi down (sudo shutdown now), have EE jumper pin 8 to 10 AND pin 7 to 29 with the power
   off, then boot.
 - Find the UART3 device (ls -l /dev/ttyAMA*, dmesg), run the loopback on /dev/ttyAMA0 at 256000 and on the UART3
   device at 115200, report both.
 - Tell me to shut down and remove the jumpers.
 - Confirm the radar comes up full screen by itself in sim mode, and check /?fps=1 on the Pi.
-Write the UART3 device into docs/hardware.md and .env.example (C1001_PORT), tick the boxes in docs/BRINGUP.md,
+Write the UART3 device into docs/hardware.md and .env.example (C1001_PORT), tick the Phase 3 checklist in docs/PLAYBOOK.md,
 update docs/STATUS.md, commit.
 ```
 
-**Before Phase 4:** A1 is already on `main`. CS2 pushes B1, Ari pulls and runs
+**Before Phase 4:** ARI-1 is already on `main`. Alex pushes ALEX-1, Ari pulls and runs
 `scripts/deploy.sh` so the Pi has both readers and both dump tools.
+
+### Phase 3 checklist
+
+- [ ] [Ari] ARI-2: setup_pi.sh ran clean, Pi rebooted
+- [ ] [Ari] Radar comes up full screen by itself after the reboot (sim mode)
+- [ ] [Ari] `/?fps=1` on the Pi: ______ fps
+- [ ] [EE] Pi off. Jumper pin 8 to pin 10 and pin 7 to pin 29. Pi on
+- [ ] [Ari] Loopback `/dev/ttyAMA0` at 256000: pass
+- [ ] [Ari] UART3 device name: ______ ; loopback at 115200: pass
+- [ ] [EE] Pi off. Jumpers removed
+- [ ] [EE] Multimeter: Pi 5 V pins read ______ V
+- [ ] [Ari] ARI-1 on `main` (done), ALEX-1 pushed, `scripts/deploy.sh` run so the Pi has both readers and dump tools
+- [ ] **Sync:** both serial ports proven, Pi boots into the radar, both readers deployed
+
+If a loopback fails, it's the Pi config, not a sensor. Fix it before Phase 4.
 
 ---
 
@@ -201,40 +285,72 @@ update docs/STATUS.md, commit.
 
 | Who | Does |
 | --- | --- |
-| EE | [Manual] Wire both sensors: power-only voltage check first, then data wires (BRINGUP Phase 4) |
-| Ari | [Claude Code] **A3**, LD2450 live (after EE's voltage check) |
-| CS2 | [Claude Code] **B2**, C1001 live, at the same time on its own UART |
+| EE | [Manual] Wire both sensors: power-only voltage check first, then data wires (Phase 4 checklist) |
+| Ari | [Claude Code] **ARI-3**, LD2450 live (after EE's voltage check) |
+| Alex | [Claude Code] **ALEX-2**, C1001 live, at the same time on its own UART |
 
 Two people can do this at once: separate UARTs, separate SSH sessions. The app service must be stopped.
 
-### A3. LD2450 live [Claude Code, Ari]
+### ARI-3. LD2450 live [Claude Code, Ari]
 
 ```
 The LD2450 is wired per docs/hardware.md and EE confirmed its TX idles at 3.3 V. Over SSH on $PI_HOST:
-sudo systemctl stop pulse, then from ~/pulse run .venv/bin/python tools/ld2450_dump.py /dev/ttyAMA0 --multi.
-Walk me through docs/BRINGUP.md
-Phase 4 LD2450 items one at a time: straight ahead at 1 m, step to MY left, walk toward the sensor, 3 people, max
+sudo systemctl stop pulse, then from ~/pulse run .venv/bin/python tools/ld2450_dump.py /dev/ttyAMA0 --multi. Walk me through the
+Phase 4 checklist (LD2450 items) in docs/PLAYBOOK.md one at a time: straight ahead at 1 m, step to MY left, walk toward the sensor, 3 people, max
 range, left/right edges, behind the panel, sitting still for 30 s. From what you see, confirm or flip X_SIGN and
 SPEED_SIGN in pi/pulse/sensors/ld2450.py so output matches the contract (negative x = holder's left, negative speed = approaching),
 and fix the parser if anything disagrees with the datasheet. Record 2 minutes to recordings/ld2450_session1.jsonl
 on the Pi, copy it to the Mac, and commit a 20-second slice as recordings/sample_ld2450.jsonl. Write every measured
-value into docs/hardware.md and BRINGUP.md, update docs/STATUS.md, commit.
+value into docs/hardware.md and the Measured section of docs/STATUS.md, tick the checklist, commit.
 ```
 
-### B2. C1001 live [Claude Code, CS2]
+### ALEX-2. C1001 live [Claude Code, Alex]
 
 ```
 The C1001 is wired per docs/hardware.md and EE confirmed its TX idles at 3.3 V. Over SSH on $PI_HOST (Ari has
 already stopped the pulse service; don't start it): from ~/pulse run .venv/bin/python tools/c1001_dump.py on the
 C1001_PORT device. Walk me
-through docs/BRINGUP.md Phase 4 C1001 items one at a time: someone sits still 1 m away chest facing it; time
+through the Phase 4 checklist (C1001 items) in docs/PLAYBOOK.md one at a time: someone sits still 1 m away chest facing it; time
 presence, breathing and heart rate appearing; compare with a phone or watch heart rate; stand up and walk (numbers
 must go null, never fake); repeat behind the panel. If nothing arrives, check TX/RX, then debug the init sequence
 against the DFRobot library. If it's still not working after 1.5 hours total on the C1001, stop and tell me so we
 can switch to the ESP32 fallback in docs/hardware.md. Record 3 minutes to recordings/c1001_session1.jsonl, commit
-a 30-second sample as recordings/sample_c1001.jsonl. Write measured values into docs/hardware.md and BRINGUP.md,
-update docs/STATUS.md, commit.
+a 30-second sample as recordings/sample_c1001.jsonl. Write measured values into docs/hardware.md
+and the Measured section of docs/STATUS.md, tick the checklist, commit.
 ```
+
+### Phase 4 checklist
+
+Power check, both sensors (EE):
+- [ ] Pi off. Sensor power only: LD2450 5V to pin ______ GND to pin ______; C1001 5V to pin ______ GND to pin ______
+      (default 2/6 and 4/9; if the screen uses a 5 V pin, run both sensors off the other 5 V pin via a breadboard rail)
+- [ ] Pi on. LD2450 TX pin to GND: ______ V (about 3.3 V is OK. **5 V: stop**)
+- [ ] C1001 TX pin to GND: ______ V (about 3.3 V is OK. **5 V: stop**)
+- [ ] Pi off. Data wires: LD2450 TX to pin 10, RX to pin 8; C1001 TX to pin 29, RX to pin 7. Pi on
+
+LD2450 (Ari, ARI-3):
+- [ ] Frames about 10/s, bad frames near 0
+- [ ] Straight ahead at 1 m: y about 1000 mm, x about 0
+- [ ] Step to the holder's left: x negative (else flip `X_SIGN`)
+- [ ] Walk toward it: speed negative (else flip `SPEED_SIGN`)
+- [ ] 3 people show at once
+- [ ] Max range walking away: ______ m
+- [ ] Left/right edge at 2 m: ______ deg
+- [ ] Behind the panel: detected? ______
+- [ ] Sitting still: drops out after ______ s (or never)
+- [ ] 2-minute session recorded, 20 s sample committed
+
+C1001 (Alex, ALEX-2):
+- [ ] Frames arriving, checksum errors not climbing
+- [ ] Person still at 1 m, chest facing: presence after ______ s
+- [ ] Breathing after ______ s, value ______ /min
+- [ ] Heart rate after ______ s, value ______ bpm; phone/watch says ______ bpm
+- [ ] Person walks around: numbers go null (no fake values)
+- [ ] Behind the panel: works? ______
+- [ ] 3-minute session recorded, 30 s sample committed
+- [ ] **Sync:** both sensors give sane data, recordings committed
+
+If the C1001 is still silent after 1.5 hours: ESP32 fallback (docs/hardware.md).
 
 ---
 
@@ -242,11 +358,11 @@ update docs/STATUS.md, commit.
 
 | Who | Does |
 | --- | --- |
-| Ari | [Claude Code] **A4**, live integration + fusion tuning |
-| CS2 | [Claude Code] **B3**, replay mode, then **B4** sitrep (separate files only) |
+| Ari | [Claude Code] **ARI-4**, live integration + fusion tuning |
+| Alex | [Claude Code] **ALEX-3**, replay mode, then **ALEX-4** sitrep (separate files only) |
 | EE | [Manual] Mount both sensors side by side, same direction, same height; be the test subject; start the body |
 
-### A4. Live integration + fusion tuning [Claude Code, Ari]
+### ARI-4. Live integration + fusion tuning [Claude Code, Ari]
 
 ```
 Read CLAUDE.md, the fusion rules in docs/data-contract.md, the T2 fusion notes in docs/STATUS.md and
@@ -257,23 +373,23 @@ Fix the known rough edges from STATUS: gate hysteresis so someone at the range e
 contact, association that survives two people crossing, the still-survivor hold. Propose threshold changes
 (smoothing, association gate, hold time, lock cone) with reasoning, apply the ones I approve as named constants.
 Fusion takes time as a parameter. Add regression tests from recordings/sample_*.jsonl.
-Acceptance = every item in docs/BRINGUP.md Phase 5. Tick them, update docs/STATUS.md, commit.
+Acceptance = every item in the Phase 5 checklist in docs/PLAYBOOK.md. Tick them, update docs/STATUS.md, commit.
 ```
 
-### B3. Replay mode [Claude Code, CS2]
+### ALEX-3. Replay mode [Claude Code, Alex]
 
 ```
 Implement PULSE_SOURCE=replay in pi/pulse/sources.py: env REPLAY_LD2450 and REPLAY_C1001 point at recorded .jsonl
-files (default recordings/sample_*.jsonl, resolved from the repo root since the server runs from pi/). Feed the raw
-bytes through the real parsers at the original timing,
+files (default recordings/sample_*.jsonl, resolved from the repo root since the server runs from pi/). Feed the
+raw bytes (the LD2450 recording's `raw` hex field) through the real parsers at the original timing,
 looping, so fusion and the UI see exactly what the sensors sent. Add a test that replays both samples and every
 snapshot passes validate_snapshot. Add a README line on running replay. Update docs/STATUS.md, commit.
 ```
 
-### B4. Command dashboard + AI sitrep [Claude Code, CS2]
+### ALEX-4. Command dashboard + AI sitrep [Claude Code, Alex]
 
-Only in new files (`ui/command.html`, a sitrep module) plus the new sitrep endpoints in `main.py`. Never touch the
-handheld UI or fusion.
+Only in new files (`ui/command.html`, a sitrep module) plus the new sitrep endpoints in `main.py` (`/command`
+already serves `ui/command.html`). Never touch the handheld UI or fusion.
 
 ```
 Build ui/command.html for a laptop on the same network: a larger radar plus a contacts table, live from /ws.
@@ -287,8 +403,22 @@ work. Standard-library HTTP only (no new dependencies), off the server loop with
 or committed. Tests for the fallback path. Update docs/STATUS.md, commit.
 ```
 
-**Gate check (everyone):** BRINGUP Phase 5 sync box. If it isn't ticked by 10 PM, stop new features and polish
+**Gate check (everyone):** the Phase 5 Sync box. If it isn't ticked by 10 PM, stop new features and polish
 what works.
+
+### Phase 5 checklist
+
+- [ ] [EE] Both sensors mounted side by side, same direction, same height
+- [ ] [Ari] `PULSE_SOURCE=live`, both status dots ok
+- [ ] [EE] Person at 1 m straight ahead shows in both sensors
+- [ ] [Ari] Dots move the right way: holder's left is screen left, walking closer moves the dot down
+- [ ] [Ari] Sit at 1 m straight ahead: lock-on, vitals on **that** dot, amber when still
+- [ ] [Ari] Two people cross paths: ids don't swap
+- [ ] [Ari] Person at the range edge doesn't flicker into new contacts
+- [ ] [Ari] Tap a dot: card shows sensible range and bearing
+- [ ] [Ari] 2 / 4 / 6 m buttons work; at 2 m far people disappear
+- [ ] [Alex] Replay mode runs the recordings on a laptop
+- [ ] **Sync / GATE:** live dots + live vitals on the screen. Rough demo video shot right now
 
 ---
 
@@ -296,20 +426,33 @@ what works.
 
 | Who | Does |
 | --- | --- |
-| Ari | [Claude Code] **A5**, break tests |
-| EE | [Manual] Finish the handheld body, 15 min power bank test, tape/glue cables (BRINGUP Phase 6) |
-| CS2 | Finish B4, or help EE and shoot photos |
+| Ari | [Claude Code] **ARI-5**, break tests |
+| EE | [Manual] Finish the handheld body, 15 min power bank test, tape/glue cables (Phase 6 checklist) |
+| Alex | Finish ALEX-4, or help EE and shoot photos |
 | Everyone | [Manual] Shoot a rough demo video the moment it works on battery |
 
-### A5. Break tests [Claude Code, Ari]
+### ARI-5. Break tests [Claude Code, Ari]
 
 ```
 Make Pulse survive a judging table. With me at the Pi, test and fix: unplugging each sensor mid-run (pill goes
 offline, UI keeps working, recovers on replug), restarting the server (NO SIGNAL, then recovers by itself),
 rebooting the Pi (radar full screen with nobody touching it), a busy room (pick the default demo gate), power bank
 (vcgencmd get_throttled under load). Also check on the real screen at 1 m whether the vitals numbers are big enough;
-bump them if not. Tick docs/BRINGUP.md Phase 6, update docs/STATUS.md, commit.
+bump them if not. Tick the Phase 6 checklist in docs/PLAYBOOK.md, update docs/STATUS.md, commit.
 ```
+
+### Phase 6 checklist
+
+- [ ] [Ari] Unplug LD2450 (Pi off first, or pull just its TX wire): pill offline, app keeps going, recovers
+- [ ] [Ari] Same for the C1001
+- [ ] [Ari] Restart the server: NO SIGNAL, then recovers by itself
+- [ ] [Ari] Reboot the Pi: radar full screen with nobody touching it
+- [ ] [Ari] Vitals readable from 1 m away on the real screen
+- [ ] [EE] Everything mounted in the body; cables taped or glued so a judge can't pull them
+- [ ] [EE] 15 minutes on the power bank: `get_throttled` ______ , temp ______ C (want 0x0 and under 80 C)
+- [ ] [All] Someone who didn't build it can use it with no explanation
+- [ ] [Alex] Sitrep works with keys and without (fallback), if built
+- [ ] **Sync:** handheld runs on battery and survives being handed to a stranger
 
 ---
 
@@ -317,8 +460,8 @@ bump them if not. Tick docs/BRINGUP.md Phase 6, update docs/STATUS.md, commit.
 
 | Who | Does |
 | --- | --- |
-| Everyone | [Manual] Full 3-minute demo from docs/demo.md behind the panel, 3 times (BRINGUP Phase 7) |
-| CS2 | [Claude chat] Devpost draft: paste docs/STATUS.md, docs/demo.md and the measured values into the hackathon Project and ask for the Devpost fields filled with real results |
+| Everyone | [Manual] Full 3-minute demo from docs/demo.md behind the panel, 3 times (Phase 7 checklist) |
+| Alex | [Claude chat] Devpost draft: paste docs/STATUS.md, docs/demo.md and the measured values into the hackathon Project and ask for the Devpost fields filled with real results |
 | Ari | [Manual] Create the Devpost project, invite the team (registration emails), paste the draft, submit rough by midnight. Make the repo public |
 | EE | [Manual] Gallery photos: device in hand with dots, wiring close-up, demo setup |
 | Optional | **S7 buzzer**, only if everything above is done. EE wires a buzzer to a free GPIO, then [Claude Code]: |
@@ -329,6 +472,16 @@ double-beep while locked with vitals, and a mute toggle in the UI. It must not b
 docs/hardware.md and docs/STATUS.md, commit.
 ```
 
+### Phase 7 checklist
+
+- [ ] [All] Demo script from docs/demo.md behind the panel, 3 times in a row
+- [ ] [All] Someone walks around at 3 m during the demo; the demo gate hides them
+- [ ] [All] Rough demo video saved
+- [ ] [EE] Gallery photos: in hand with dots, wiring close-up, demo setup
+- [ ] [Ari] Devpost project created, team invited with registration emails, rough version submitted
+- [ ] [Ari] Repo public
+- [ ] **Sync:** rough submission in by midnight
+
 ---
 
 ## Phase 8. Sunday
@@ -336,12 +489,12 @@ docs/hardware.md and docs/STATUS.md, commit.
 | Time | What |
 | --- | --- |
 | by 7:30 AM | Final demo video (about 2 min: problem, live demo, how it works, limits). Upload to YouTube, unlisted |
-| 8:30 AM | Code freeze. Run **A6** |
+| 8:30 AM | Code freeze. Run **ARI-6** |
 | 9:30 AM | Devpost final: video link, public repo link, prizes selected, all members listed |
 | 10:00 AM | Devpost closes |
 | 11:00 AM | Last commit allowed |
 
-### A6. Pre-demo check [Claude Code, Ari]
+### ARI-6. Pre-demo check [Claude Code, Ari]
 
 ```
 Pre-demo check: run all tests, run sim and replay, deploy to the Pi, and walk the demo script in docs/demo.md
@@ -349,14 +502,22 @@ against the code. Confirm the repo is public, the README explains how to run sim
 committed. List anything that could break in front of a judge, ranked, and fix the top items only with my OK.
 ```
 
+### Phase 8 checklist
+
+- [ ] [All] Final video uploaded (YouTube, unlisted) by 7:30 AM
+- [ ] [Ari] Code freeze 8:30 AM, ARI-6 pre-demo check clean
+- [ ] [Ari] Devpost final by 9:30 AM: video, public repo, prizes (Embedded, Useful, AI/Gemini/ElevenLabs if built)
+- [ ] [All] Last commit before 11:00 AM
+- [ ] [All] Demo kit packed: device, charged power bank, bench supply, panel, chair, laptop, spare jumpers
+
 ---
 
 ## Any time
 
 **Catch up (new session or a teammate joining) [Claude Code]:**
 ```
-Read CLAUDE.md, docs/STATUS.md and docs/BRINGUP.md and tell me in 5 lines: which phase we're in, what works, what's
-in progress, what's next for <Ari | CS2 | EE>, and any open risks.
+Read CLAUDE.md, docs/STATUS.md and docs/PLAYBOOK.md and tell me in 5 lines: which phase we're in, what works, what's
+in progress, what's next for <Ari | Alex | EE>, and any open risks.
 ```
 
 **Debug [Claude Code]:**

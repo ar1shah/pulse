@@ -33,7 +33,7 @@ Sensor TX goes to Pi RX. Sensor RX goes to Pi TX.
 | Baud | 256000 | 115200 |
 
 If the screen takes a GPIO 5 V pin, run both sensors off the other 5 V pin via a breadboard rail and use any free
-GND (6, 9, 14, 20, 25, 30, 34, 39). Record the actual pins in docs/BRINGUP.md Phase 4.
+GND (6, 9, 14, 20, 25, 30, 34, 39). Record the actual pins in the Phase 4 checklist in docs/PLAYBOOK.md.
 
 Before connecting a sensor: multimeter its TX pin, it should idle near 3.3 V, never 5 V.
 

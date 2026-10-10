@@ -1,5 +1,7 @@
 # Pulse
 
+Teammates: open docs/PLAYBOOK.md and find the phase marked WE ARE HERE.
+
 A handheld radar that finds people through thin walls and reads their breathing and heart rate from arm's length,
 built for rescuers searching homes after a hurricane. Knight Hacks IX, UCF, October 2026.
 
@@ -22,10 +24,8 @@ cd pi && PULSE_SOURCE=sim SIM_SCENARIO=demo python -m pulse.main
 
 ## Docs
 
-- `CLAUDE.md`: project context and rules (read by Claude Code every session)
+- `docs/PLAYBOOK.md`: what to do, phase by phase. **Start here.**
+- `docs/STATUS.md`: where we are
 - `docs/data-contract.md`: the WebSocket message and fusion rules
 - `docs/hardware.md`: parts, wiring, Pi config, sensor protocols
 - `docs/demo.md`: demo script and pitch claims
-- `docs/STATUS.md`: what's done and what's next
-- `docs/BRINGUP.md`: hardware bring-up checklist, phase by phase, with owners and measured values
-- `docs/PROMPTS.md`: phase-by-phase playbook (who does what, and the Claude Code prompts)

@@ -9,10 +9,13 @@ architecture. But never break the demo path: sim mode must always run.
 
 ## Team and deadlines
 
-- Team of 3: Ari (Pi + LD2450), CS2 (C1001 + AI sitrep), EE (hardware: screen, wiring, power, body, demo panel).
+- Team of 3: **Ari** (CS: Pi setup + LD2450, prompts ARI-n), **Alex** (CS: C1001 + replay + AI sitrep, prompts
+  ALEX-n), **EE** (hardware: screen, wiring, power, body, demo panel).
 - Devpost final Sun Oct 11, 10:00 AM. Commits stop 11:00 AM. The repo must be public at submission.
 - **Gate: live dots + live vitals on the screen by 10 PM Saturday. No new features after the gate.**
-- Work goes phase by phase: prompts in docs/PROMPTS.md, tick boxes and measured values in docs/BRINGUP.md.
+- `docs/PLAYBOOK.md` = what to do (phases, prompts, checklists). `docs/STATUS.md` = where we are.
+- When a prompt finishes: tick its boxes in PLAYBOOK and update STATUS. When a phase's Sync box is ticked: move both
+  `WE ARE HERE` markers in PLAYBOOK and the STATUS banner to the next phase.
 
 ## Hardware (details: docs/hardware.md, read it before touching pi/pulse/sensors/)
 
@@ -53,21 +56,22 @@ three plus the tests in the same commit, and bump `v`.
 ```
 CLAUDE.md
 README.md
-docs/            data-contract.md, hardware.md, BRINGUP.md, demo.md, STATUS.md, PROMPTS.md, screenshots/
+docs/            PLAYBOOK.md, STATUS.md, data-contract.md, hardware.md, demo.md, screenshots/
 pi/
-  requirements.txt
-  pulse/         main.py, state.py, fusion.py, sensors/{ld2450,c1001,sim}.py
+  requirements.txt, requirements-dev.txt, pytest.ini
+  pulse/         main.py, state.py, fusion.py, sources.py, sensors/{ld2450,c1001,sim}.py
   tests/
-ui/              index.html, radar.js, style.css, contract.js, debug.html, command.html, fonts/
-tools/           ld2450_dump.py, c1001_dump.py, uart_loopback.py
-scripts/         setup_pi.sh, deploy.sh, pi_logs.sh, pulse.service
+ui/              index.html, radar.js, card.js, drawer.js, controls.js, fmt.js, style.css, contract.js, debug.html,
+                 command.html (ALEX-4), fonts/
+tools/           ld2450_dump.py, c1001_dump.py (ALEX-1), uart_loopback.py (ARI-2), ui_screenshots.py, ui_t4_shots.py
+scripts/         setup_pi.sh, deploy.sh, pi_logs.sh, pulse.service (all ARI-2)
 recordings/      captured sensor sessions (.jsonl), gitignored except small samples
 hardware/        enclosure sketches, build photos
 ```
 
 ## Commands
 
-Some of these are created by tasks in docs/PROMPTS.md; if one doesn't exist yet, that task hasn't run.
+Some of these are created by prompts in docs/PLAYBOOK.md; if one doesn't exist yet, that prompt hasn't run.
 
 ```bash
 # Mac setup (once)

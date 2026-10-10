@@ -1,89 +1,77 @@
+Update this when a phase changes or a prompt finishes. What to do is in docs/PLAYBOOK.md.
+
 # Status
 
-Update this at the end of every task: tick the box, add a one-line note, keep "Next up" current.
-Phase numbers and prompt ids (A1 to A6, B1 to B4) match docs/PROMPTS.md; the detailed boxes and measured values
-for each phase are in docs/BRINGUP.md.
+> # >>> WE ARE HERE: PHASE 1 (Unbox + start the parsers) <<<
+>
+> - **Ari:** SD card decided (a new card, being flashed with Raspberry Pi Imager). ARI-1 is done (on `main`).
+>   Next: Phase 2 boot + SSH as soon as the card is ready.
+> - **Alex:** ALEX-1 (C1001 parser, reader, dump tool).
+> - **EE:** Phase 1 checklist (inventory, photos, pin labels, cable connectors, power supply).
 
-T5 to T9 and S1 to S7 were folded into the phases: T5 is A1, T6 is B1, T8 + T9 are A2, S1 is A3, S2 is B2,
-T7 + S4 are A4, S3 is B3, S6 is B4, S5 is A5, S7 is the optional buzzer in Phase 7.
+**Deadlines:** Devpost final Sun Oct 11 10:00 AM, commits stop 11:00 AM, repo public at submission.
+**Gate:** live dots + live vitals on the screen by 10 PM Sat; no new features after it.
 
-## Next up
-Phase 1 to 2: EE finishes BRINGUP Phase 1 (inventory, photos, pin labels, connectors). CS2 finishes B1. Ari: a new SD
-card is being flashed with Raspberry Pi Imager (hostname `pulse`, user `pulse`, SSH key, hotspot Wi-Fi); then boot,
-`ssh-keygen -R pulse.local`, `ssh pulse@pulse.local`, and A2.
+## Phases
 
-## Phase 0. Done (T0 to T4)
-- [x] T0 repo created, pushed, teammates added, SSH key on Pi
-- [x] T1 scaffold + data contract in code
-- [x] T2 server + sim mode + minimal fusion
-- [x] T3 radar UI
-- [x] T4 tap-a-dot card, contacts drawer, range buttons
+Tick boxes live only in docs/PLAYBOOK.md; this table is the summary.
 
-## Phase 1. Unbox + start the parsers
-- [ ] EE (manual): inventory, photos, pin labels, cable connectors, power supply
-- [x] Ari (manual): SD card decision: a new card, flashed fresh (not the loaner's)
-- [x] A1 LD2450 parser, reader, LiveSource, dump tool (Ari, committed on `main`)
-- [ ] B1 C1001 parser, reader, dump tool (CS2)
-
-## Phase 2. Pi + screen boot
-- [ ] EE (manual): screen on the DISPLAY port, screen power pins recorded, Pi boots to the desktop, touch works
-- [ ] Ari (manual): new SD card flashed (in progress), `ssh pulse@pulse.local` from the Mac with no password
-- [ ] CS2 (manual): `ssh-copy-id pulse@pulse.local` from CS2's laptop
-
-## Phase 3. Pi setup + serial ports
-- [ ] A2 Pi setup, kiosk, deploy, both UART loopbacks, UART3 device recorded (Ari)
-- [ ] EE (manual): loopback jumpers on and off, Pi 5 V pins measured
-- [ ] Ari (manual): B1 pulled (A1 is already on `main`), `scripts/deploy.sh` run
-
-## Phase 4. Sensors live
-- [ ] EE (manual): power-only check, both sensor TX idle at about 3.3 V, then data wires
-- [ ] A3 LD2450 live: sign constants confirmed, session recorded, sample committed (Ari)
-- [ ] B2 C1001 live: vitals timed, HR compared, session recorded, sample committed (CS2)
-
-## Phase 5. Full app live: the gate (10 PM latest)
-- [ ] EE (manual): both sensors mounted side by side, same direction, same height
-- [ ] A4 live integration + fusion tuning (Ari)
-- [ ] B3 replay mode (CS2)
-- [ ] B4 command dashboard + Gemini sitrep + ElevenLabs read-aloud (CS2, separate files only)
-- [ ] **Gate: live dots + live vitals on the screen.** After the gate: no new features.
-
-## Phase 6. Judge-proof
-- [ ] A5 break tests (Ari)
-- [ ] EE (manual): handheld body, cables secured, 15 min power bank test
-- [ ] All (manual): rough demo video on battery
-
-## Phase 7. Saturday night
-- [ ] All (manual): demo script 3 times behind the panel
-- [ ] CS2 (Claude chat): Devpost draft
-- [ ] Ari (manual): Devpost project, team invited, rough submit by midnight, repo public
-- [ ] EE (manual): gallery photos
-- [ ] S7 buzzer (optional, only if everything else is done)
-
-## Phase 8. Sunday (Oct 11)
-- [ ] Final demo video by 7:30 AM (YouTube, unlisted)
-- [ ] Code freeze 8:30 AM, A6 pre-demo check (Ari)
-- [ ] Devpost final 9:30 AM (closes 10:00 AM): video, public repo, all members
-- [ ] Last commit before 11:00 AM
+| Phase | Name | Owner(s) | Status | Prompts |
+| --- | --- | --- | --- | --- |
+| 0 | Done so far (T0 to T4) | All | Done | T0 to T4 |
+| 1 | Unbox + start the parsers | EE, Ari, Alex | In progress | ARI-1 (done), ALEX-1 |
+| 2 | Pi + screen boot | EE, Ari, Alex | Not started | Manual only |
+| 3 | Pi setup + serial ports | Ari, EE | Not started | ARI-2 |
+| 4 | Sensors live | EE, Ari, Alex | Not started | ARI-3, ALEX-2 |
+| 5 | Full app live: the gate (10 PM latest) | Ari, Alex, EE | Not started | ARI-4, ALEX-3, ALEX-4 |
+| 6 | Judge-proof | Ari, EE, Alex | Not started | ARI-5 |
+| 7 | Saturday night: rehearse + rough submit | All | Not started | Devpost draft (Claude chat), S7 buzzer (optional) |
+| 8 | Sunday | All | Not started | ARI-6 |
 
 ## Measured on hardware
-Fill in as BRINGUP.md asks for each value, and copy the final ones into docs/hardware.md. Fields were taken
-from PROMPTS.md and hardware.md; add any BRINGUP.md asks to record that are missing here.
 
-- Pi: user@host ____ / OS ____ / session + compositor ____ / Chromium binary ____
-- UART0 loopback (pin 8 to 10, 256000): ____
-- UART3 device name ____ / loopback (pin 7 to 29, 115200): ____
-- LD2450 TX idle voltage ____ V / 5 V pin used ____
-- LD2450 x sign (holder's left is raw +/-) ____ / speed sign (approaching is raw +/-) ____
-- LD2450 targets seen at once (max 3?) ____ / frames/s ____ / bad frames in 2 min ____
-- C1001 TX idle voltage ____ V / 5 V pin used ____
-- C1001 time to presence ____ s / breathing ____ s / heart ____ s
-- C1001 vs phone/watch HR: sensor ____ bpm, watch ____ bpm, distance ____ m
-- C1001 working distance range ____ m
-- Power bank (model, capacity): ____ / `vcgencmd get_throttled` idle ____, under load ____ / runtime ____
-- UI fps on the Pi (`/?fps=1`) ____ / touch: drawer scrolls ____, taps at screen edges ____
-- Live: lock acquired in ____ s / dot jitter ____ / ids swap ____
+One row per blank in the PLAYBOOK checklists, then a few extra values the prompts ask for. Copy the final numbers
+into docs/hardware.md too.
+
+| Phase | What | Value |
+| --- | --- | --- |
+| 1 | LD2450 pin order (labels) | |
+| 1 | C1001 pin order (labels) | |
+| 1 | Sensor cable connectors: plan if lab jumpers don't fit | |
+| 2 | Screen power on GPIO: 5 V pin | |
+| 2 | Screen power on GPIO: GND pin | |
+| 2 | `vcgencmd measure_temp` idle (C) | |
+| 2 | Pi IP (`hostname -I`) | |
+| 3 | UI fps on the Pi (`/?fps=1`) | |
+| 3 | UART3 device name | |
+| 3 | Pi 5 V pins (V, multimeter) | |
+| 4 | LD2450 5 V pin / GND pin | |
+| 4 | C1001 5 V pin / GND pin | |
+| 4 | LD2450 TX idle (V) | |
+| 4 | C1001 TX idle (V) | |
+| 4 | LD2450 max range walking away (m) | |
+| 4 | LD2450 left/right edge at 2 m (deg) | |
+| 4 | LD2450 behind the panel: detected? | |
+| 4 | LD2450 sitting still: drops out after (s, or never) | |
+| 4 | C1001 presence after (s) | |
+| 4 | C1001 breathing after (s) / value (/min) | |
+| 4 | C1001 heart rate after (s) / value (bpm) | |
+| 4 | Phone/watch heart rate at the same time (bpm) | |
+| 4 | C1001 behind the panel: works? | |
+| 6 | Power bank 15 min: `vcgencmd get_throttled` | |
+| 6 | Power bank 15 min: temp (C) | |
+| extra (ARI-2) | Pi user@host / OS / session + compositor / Chromium binary | |
+| extra (ARI-2) | UART0 loopback (pin 8 to 10, 256000) / UART3 loopback (pin 7 to 29, 115200) | |
+| extra (ARI-3) | LD2450 x sign: holder's left is raw + or - (`X_SIGN`) | |
+| extra (ARI-3) | LD2450 speed sign: approaching is raw + or - (`SPEED_SIGN`) | |
+| extra (ARI-3) | LD2450 targets at once / frames/s / bad frames in 2 min | |
+| extra (ALEX-2) | C1001 working distance range (m) | |
+| extra (ARI-5) | Power bank model + capacity / `get_throttled` idle and under load / runtime | |
+| extra (ARI-5) | Touch on the 7": drawer scrolls / taps at screen edges | |
+| extra (ARI-4) | Live: lock acquired in (s) / dot jitter / ids swap | |
 
 ## Notes
+- T5 to T9 and S1 to S7 were folded into PLAYBOOK phases 1 to 8 (in the notes below, A1 = ARI-1 and CS2 = Alex).
 - T1: contract is in `pi/pulse/state.py` + `ui/contract.js`; `pi/tests/test_contract.py` checks the doc
   example, the dataclass round trip, every violation kind, and that contract.js matches state.py.
   Keep each `export const` in contract.js on one line (the test parses it).
