@@ -292,6 +292,18 @@ into docs/hardware.md too.
   shows, from a `--record` file) was meant to land with this but was not in the repo; add it with its doc lines
   when found. Deployed and checked live on the Pi: noticeably steadier dots. Known-good point tagged
   `v0.5-working-beta` ("v0.5: WORKING BETA"): `git checkout v0.5-working-beta -- pi/pulse/fusion.py` to get back to it if later tuning makes it worse.
+- fix-x-jitter (branch, Sun morning; main untouched): left/right was unreliable live (dot stalls, small jumps,
+  sometimes the wrong way). Parser checked and correct (sign bit, header/tail, resync, partial reads). Root causes
+  found in fusion with a fault model (15 cm x noise, 25 % missed frames, 8 % returns 0.5 m off): a far return
+  inside the 0.6 m gate kicked the velocity ~750 mm/s, often the wrong way, so the track lost its person and a new
+  id spawned; and a still track's velocity random-walked on noise and fired as a jump when it turned moving. New
+  `pi/pulse/tracker.py` (knobs at its top): shown x = outlier gate, median 5, EMA 0.35, 80 mm deadband;
+  velocity residual clipped to 250 mm; new tracks shown from their 3rd detection, ghosts dropped after 0.3 s.
+  y and association unchanged. On for live, off for sim (`PULSE_XFILTER=1/0` forces). Same fault model, 40 runs
+  at 0.4 m/s: wrong-way steps 133 -> 0, runs with a phantom/new id 33 -> 4. Cost: x lags ~0.3 m at 0.4 m/s.
+  `LOG_RAW=1` logs raw slots vs shown dots to `recordings/xlog_*.csv`, `tools/plot_x.py` plots it. Contract rule 4
+  updated; /ws shape unchanged, `v` stays 1. 203 tests pass. Deployed to the Pi (live, filter on) and walked: good
+  enough for the demo. Kill switch: `PULSE_XFILTER=0` in the Pi's `.env`, then `systemctl --user restart pulse`.
 - ALEX-2 (run by Ari, Sat evening; full write-up in docs/hardware.md "Measured on our sensor"): wired VIN pin 2, GND
   9, TX 29, RX 7, `/dev/ttyAMA3`, mounted on the back of the screen. Walk-up bug found and fixed: the sensor shipped
   in reporting mode 1, where vitals are only computed while its "in bed" state is 1, which walking up never sets

@@ -5,18 +5,20 @@ Time is always a parameter, so tests and the sim are deterministic. The sim scen
 """
 import itertools
 import math
+import os
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
 from .sensors.c1001 import C1001Reading
 from .sensors.ld2450 import Ld2450Frame
+from .tracker import CONFIRM_FRAMES, TENTATIVE_DROP_S, VEL_CLIP_MM, XFilter
 from .state import (BREATH_RANGE, GATE_ANGLE_LIMITS, GATE_RANGE_LIMITS, HOLD_S, LOCK_CONE_DEG,
                     LOCK_MAX_M, LOCK_MIN_M, MAX_CONTACTS, TARGET_IDS, Contact, Gate, SensorStatus, Snapshot,
                     Source, Target, Triage, Vitals)
 
 ASSOCIATE_M = 0.6           # max match distance from a track's predicted spot: a walker covers 0.15 m per tick
-SMOOTH_ALPHA = 0.3          # weight of the new detection in position smoothing (0.5 let live LD2450 noise through)
+SMOOTH_ALPHA = 0.3          # alpha-beta on the raw detections (with the x filter on, the screen's x is tracker.py's)
 VEL_BETA = 0.15             # weight of the residual in the velocity estimate (alpha-beta pair for 0.5 is ~0.17)
 COAST_S = 1.0               # a moving track's prediction runs on this long undetected (two people merging)
 GATE_MARGIN_M = 0.3         # a track lives to gate + this (less than a step); new tracks start inside the gate
@@ -34,14 +36,22 @@ _UNUSABLE = ("stale", "offline")
 @dataclass
 class _Track:
     id: int
-    x: float                # smoothed position, mm
+    x: float                # shown position, mm: x through tracker.XFilter when on (else ax), y = ay
     y: float
     speed_cms: float
     last_seen: float        # time of the last detection
+    ax: float = 0.0         # association position: alpha-beta on the raw detections, mm
+    ay: float = 0.0
     vx: float = 0.0         # velocity estimate, mm/s
     vy: float = 0.0
     moving: bool = False
+    hits: int = 1           # detections so far; shown once >= CONFIRM_FRAMES
     history: deque = field(default_factory=deque)   # (t, x, y) over the last MOVING_WINDOW_S
+    filt: XFilter | None = None
+
+    def __post_init__(self) -> None:
+        self.ax, self.ay = self.x, self.y
+        self.filt = XFilter(self.x)
 
     @property
     def range_m(self) -> float:
@@ -58,13 +68,20 @@ class _Track:
     def predict(self, now: float) -> tuple[float, float]:
         """Where the track should be now. A still track never coasts, so a held survivor can't drift."""
         if not self.moving:
-            return self.x, self.y
+            return self.ax, self.ay
+        return self.extrapolate(now)
+
+    def extrapolate(self, now: float) -> tuple[float, float]:
         dt = min(now - self.last_seen, COAST_S)
-        return self.x + self.vx * dt, self.y + self.vy * dt
+        return self.ax + self.vx * dt, self.ay + self.vy * dt
 
 
 def _polar(x_mm: float, y_mm: float) -> tuple[float, float]:
     return math.hypot(x_mm, y_mm) / 1000, math.degrees(math.atan2(x_mm, y_mm))
+
+
+def _clip(v: float, lim: float) -> float:
+    return max(-lim, min(lim, v))
 
 
 def _sanitize(value: Any, lo: int, hi: int) -> int | None:
@@ -80,9 +97,17 @@ def _valid_number(v: Any, lo: float, hi: float) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and lo <= v <= hi
 
 
+def xfilter_default(source_name: str) -> bool:
+    """Env PULSE_XFILTER=1/0 forces the x filter (tracker.py) on/off; unset, it is on for live only, so sim
+    stays exactly as it was. Off is the pre-filter fusion, unchanged."""
+    env = os.environ.get("PULSE_XFILTER", "").strip()
+    return env == "1" if env in ("0", "1") else source_name == "live"
+
+
 class Fusion:
-    def __init__(self, source_name: Source) -> None:
+    def __init__(self, source_name: Source, xfilter: bool | None = None) -> None:
         self.source_name = source_name
+        self.xfilter = xfilter_default(source_name) if xfilter is None else xfilter
         self.gate = Gate()
         self._tracks: dict[int, _Track] = {}
         self._detected: set[int] = set()
@@ -124,7 +149,8 @@ class Fusion:
         self._gate_and_hold(now, recent)
 
         # tracks in the gate margin stay alive (same id, same contact) but are not shown
-        shown = [t for t in sorted(self._tracks.values(), key=lambda t: t.id) if self._inside(t, 0.0, 0.0)]
+        shown = [t for t in sorted(self._tracks.values(), key=lambda t: t.id)
+                 if self._confirmed(t) and self._inside(t, 0.0, 0.0)]
         locked = self._lock(shown)
         vitals = self._vitals(now, c1, locked)
         targets = [self._target(now, t, locked, presence, vitals) for t in shown]
@@ -156,9 +182,18 @@ class Fusion:
         for tid, i in matched.items():
             x, y, speed = dets[i]
             t = self._tracks[tid]
+            if self.xfilter and not t.filt.update(x):
+                continue                # outlier jump: a miss for this track, and no new track from it
             px, py = t.predict(now)
             rx, ry = x - px, y - py
-            t.x, t.y = px + SMOOTH_ALPHA * rx, py + SMOOTH_ALPHA * ry
+            t.ax, t.ay = px + SMOOTH_ALPHA * rx, py + SMOOTH_ALPHA * ry
+            t.x, t.y = (t.filt.x if self.xfilter else t.ax), t.ay
+            if self.xfilter:
+                # the velocity residual is always against the velocity's own prediction. A still track predicts
+                # without velocity, so the old residual let vx random-walk on noise, then fire as a jump (often
+                # the wrong way) the moment the track counted as moving. Same as before while moving.
+                ex, ey = t.extrapolate(now)
+                rx, ry = _clip(x - ex, VEL_CLIP_MM), _clip(y - ey, VEL_CLIP_MM)
             dt = now - t.last_seen
             if 0 < dt <= COAST_S:
                 t.vx += VEL_BETA * rx / dt
@@ -167,6 +202,7 @@ class Fusion:
                 t.vx = t.vy = 0.0       # lost too long: start the velocity estimate over
             t.speed_cms = speed
             t.last_seen = now
+            t.hits += 1
             self._detected.add(tid)
 
         used = set(matched.values())
@@ -221,9 +257,15 @@ class Fusion:
             held_s = now - t.last_seen
             outside = not self._inside(t, GATE_MARGIN_M, GATE_MARGIN_DEG)
             expired = held_s > HOLD_S and not (presence and t.in_cone)   # still survivor stays held
+            if not self._confirmed(t):
+                expired = held_s > TENTATIVE_DROP_S     # a ghost that never confirmed is not held
             if outside or expired:
                 del self._tracks[tid]
                 self._live.pop(tid, None)
+
+    def _confirmed(self, t: _Track) -> bool:
+        """A new track is shown (and held) only from its CONFIRM_FRAMES-th detection; x filter only."""
+        return not self.xfilter or t.hits >= CONFIRM_FRAMES
 
     def _inside_gate(self, x: float, y: float) -> bool:
         rng, ang = _polar(x, y)

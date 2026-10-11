@@ -59,11 +59,13 @@ README.md
 docs/            PLAYBOOK.md, STATUS.md, data-contract.md, hardware.md, demo.md, screenshots/
 pi/
   requirements.txt, requirements-dev.txt, pytest.ini
-  pulse/         main.py, state.py, fusion.py, sources.py, sensors/{ld2450,c1001,sim}.py
+  pulse/         main.py, state.py, fusion.py, tracker.py (live x filter), rawlog.py (LOG_RAW), sources.py,
+                 sensors/{ld2450,c1001,sim}.py
   tests/
 ui/              index.html, radar.js, card.js, drawer.js, controls.js, fmt.js, style.css, contract.js, debug.html,
                  command.html (ALEX-4), fonts/
-tools/           ld2450_dump.py, c1001_dump.py (ALEX-1), uart_loopback.py (ARI-2), ui_screenshots.py, ui_t4_shots.py
+tools/           ld2450_dump.py, c1001_dump.py (ALEX-1), uart_loopback.py (ARI-2), ui_screenshots.py, ui_t4_shots.py,
+                 plot_x.py (LOG_RAW csv: raw vs shown x)
 scripts/         setup_pi.sh, deploy.sh, pi_logs.sh, pulse.service, kiosk.sh, pi_venv.sh, pi_launchers.sh (all ARI-2)
 recordings/      captured sensor sessions (.jsonl), gitignored except small samples
 hardware/        enclosure sketches, build photos
@@ -128,6 +130,8 @@ PI_HOST=pulse@pulse.local scripts/pi_logs.sh
 - The LD2450 is built for moving people; a still person can drop out. Fusion holds tracks for 3 s and
   keeps a still track alive while the C1001 reports presence in the lock cone.
 - LD2450 slot order is not identity; fusion associates detections to tracks by nearest neighbor.
+- LD2450 x (left/right) is much noisier than y. In live, the shown x goes through `pi/pulse/tracker.py` (all knobs
+  at its top); `PULSE_XFILTER=0` in the Pi's `.env` turns it off, sim has it off by default.
 - Chromium kiosk caches hard; deploy reloads the page.
 - `pulse.service` is a systemd **user** unit (`systemctl --user ...`, `journalctl --user -u pulse`), with linger on
   so it starts at boot. sudo on the Pi needs a password, so nothing in deploy may use sudo.
