@@ -121,3 +121,7 @@ docs/         hardware, data contract, demo script, team playbook
 
 [docs/data-contract.md](docs/data-contract.md) defines the WebSocket message and every fusion rule.
 Team working docs: [docs/PLAYBOOK.md](docs/PLAYBOOK.md) and [docs/STATUS.md](docs/STATUS.md).
+
+## Team
+
+Built by Ari Shah, Ananya Varde, Dominic Scarpitta and Alex Weninski.
