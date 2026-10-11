@@ -116,6 +116,11 @@ Unknown or invalid messages are ignored and logged. Selection of a dot is UI-onl
    predicted positions: the matching with the most pairs, then the least total distance. A pair farther than
    0.6 m is never made. Unmatched detections inside the gate start new tracks with the lowest free id (1 to 3).
 4. **Smooth**: alpha-beta filter on position and velocity (alpha 0.3, beta 0.15).
+   **Live x filter** (`pi/pulse/tracker.py`, on for live, off for sim, env `PULSE_XFILTER=1/0` forces it): the
+   shown `x_mm` goes through an outlier gate (1 m from the recent median, 3 in a row restarts), a median of 5,
+   an EMA (0.35) and an 80 mm deadband; association keeps using the alpha-beta position. The velocity residual is
+   taken against the velocity's own prediction and clipped to 250 mm. A new track is shown (and held) only from
+   its 3rd detection; until then it is dropped after 0.3 s undetected.
 5. **Moving**: `|speed_cms| >= 10` or the track moved more than 0.25 m in the last 1 s.
 6. **Hold**: a track not detected is kept for 3 s (`last_seen_s` counts up), then dropped. If the C1001
    reported `presence` within the last 2 s and the held track is inside the lock cone, keep holding it (still
