@@ -67,7 +67,7 @@ What `setup_pi.sh` sets up besides the serial ports:
 Loopback test before sensors are wired (Pi off while jumpering): pin 8 to pin 10 and pin 7 to pin 29, then on the Pi
 from `~/pulse`: `.venv/bin/python tools/uart_loopback.py /dev/ttyAMA0 256000` and
 `.venv/bin/python tools/uart_loopback.py /dev/ttyAMA3 115200`. Exit 0 = PASS. "Nothing came back" = jumper or
-UART not enabled; garbled bytes = baud problem (mini UART instead of the PL011). Not run yet (see STATUS).
+UART not enabled; garbled bytes = baud problem (mini UART instead of the PL011). Both PASS on our Pi (all 5 patterns).
 
 Plan B: USB to serial adapter (CP2102 or similar that supports 256000) shows up as `/dev/ttyUSB0`.
 Works on the Pi and on a Mac (`/dev/tty.usbserial-*`).

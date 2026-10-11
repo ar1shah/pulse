@@ -1,6 +1,6 @@
 # Pulse playbook
 
-> # >>> WE ARE HERE: PHASE 3 (Pi setup + serial ports) <<<
+> # >>> WE ARE HERE: PHASE 4 (Sensors live) <<<
 >
 > Jump to the phase marked `<<< WE ARE HERE` below. Find your name in its table, do your rows, tick your boxes
 > in that phase's checklist. When the phase's **Sync** box is ticked, whoever ticked it moves both
@@ -211,7 +211,7 @@ hostname -I                      # on the Pi: note the IP as a backup for PI_HOS
 - [ ] [EE] Screen power wires on GPIO pins (if any): 5 V pin ______ GND pin ______
 - [x] [Ari] New SD card flashed (64-bit desktop, hostname `pulse`, user `pulse`, SSH key, hotspot Wi-Fi)
 - [x] [EE] Pi boots, desktop shows on the 7" screen
-- [ ] [EE] Tap the screen, including the corners: touch registers (taps work, e.g. the EXIT chip top right; corners not checked)
+- [x] [EE] Tap the screen, including the corners: touch registers (all four corners, range buttons, dot taps, drawer finger-scroll)
 - [x] [Ari] `ssh pulse@pulse.local` works from the Mac with no password
 - [ ] [Alex] `ssh pulse@pulse.local` works from Alex's laptop with no password
 - [x] [Ari] `vcgencmd get_throttled` = `0x0` on the bench supply
@@ -221,10 +221,9 @@ hostname -I                      # on the Pi: note the IP as a backup for PI_HOS
 
 ---
 
-## Phase 3. Pi setup + serial ports (about 30 min)   <<< WE ARE HERE
+## Phase 3. Pi setup + serial ports (about 30 min)
 
-Moved here with the Phase 1 and 2 EE boxes still open (inventory, photos, pin labels, screen power pins, touch
-corners): the Pi is set up and running the kiosk, so the work is here. EE, tick those when you get a minute.
+Moved here with the Phase 1 and 2 EE boxes still open (inventory, photos, pin labels, screen power pins): the Pi is set up and running the kiosk, so the work is here. EE, tick those when you get a minute.
 
 | Who | Does |
 | --- | --- |
@@ -232,7 +231,7 @@ corners): the Pi is set up and running the kiosk, so the work is here. EE, tick 
 | EE | [Manual] Loopback jumpers when ARI-2 asks; multimeter the Pi's 5 V pins; start the demo panel |
 | Alex | Keep ALEX-1 going |
 
-### ARI-2. Pi setup, kiosk, deploy, loopback [Claude Code, Ari] (scripts done and run; loopback + fps left)
+### ARI-2. Pi setup, kiosk, deploy, loopback [Claude Code, Ari] (done)
 
 ```
 Read CLAUDE.md and docs/hardware.md. The Pi is reachable at $PI_HOST (pulse@pulse.local) with key auth.
@@ -271,20 +270,20 @@ update docs/STATUS.md, commit.
 
 - [x] [Ari] ARI-2: setup_pi.sh ran clean, Pi rebooted
 - [x] [Ari] Radar comes up full screen by itself after the reboot (sim mode)
-- [ ] [Ari] `/?fps=1` on the Pi: ______ fps
-- [ ] [EE] Pi off. Jumper pin 8 to pin 10 and pin 7 to pin 29. Pi on
-- [ ] [Ari] Loopback `/dev/ttyAMA0` at 256000: pass
-- [ ] [Ari] UART3 device name: `/dev/ttyAMA3` ; loopback at 115200: pass
-- [ ] [EE] Pi off. Jumpers removed
+- [x] [Ari] `/?fps=1` on the Pi: 61 fps
+- [x] [EE] Pi off. Jumper pin 8 to pin 10 and pin 7 to pin 29. Pi on
+- [x] [Ari] Loopback `/dev/ttyAMA0` at 256000: pass
+- [x] [Ari] UART3 device name: `/dev/ttyAMA3` ; loopback at 115200: pass
+- [x] [EE] Pi off. Jumpers removed
 - [ ] [EE] Multimeter: Pi 5 V pins read ______ V
 - [x] [Ari] ARI-1 on `main` (done), ALEX-1 pushed, `scripts/deploy.sh` run so the Pi has both readers and dump tools
-- [ ] **Sync:** both serial ports proven, Pi boots into the radar, both readers deployed
+- [x] **Sync:** both serial ports proven, Pi boots into the radar, both readers deployed (multimeter box still open)
 
 If a loopback fails, it's the Pi config, not a sensor. Fix it before Phase 4.
 
 ---
 
-## Phase 4. Sensors live, both at once (about 45 min)
+## Phase 4. Sensors live, both at once (about 45 min)   <<< WE ARE HERE
 
 | Who | Does |
 | --- | --- |
@@ -450,7 +449,7 @@ bump them if not. Tick the Phase 6 checklist in docs/PLAYBOOK.md, update docs/ST
 - [ ] [Ari] Same for the C1001
 - [ ] [Ari] Restart the server: NO SIGNAL, then recovers by itself
 - [ ] [Ari] Reboot the Pi: radar full screen with nobody touching it
-- [ ] [Ari] Vitals readable from 1 m away on the real screen
+- [x] [Ari] Vitals readable from 1 m away on the real screen (passed early, in Phase 3)
 - [ ] [EE] Everything mounted in the body; cables taped or glued so a judge can't pull them
 - [ ] [EE] 15 minutes on the power bank: `get_throttled` ______ , temp ______ C (want 0x0 and under 80 C)
 - [ ] [All] Someone who didn't build it can use it with no explanation

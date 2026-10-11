@@ -2,15 +2,14 @@ Update this when a phase changes or a prompt finishes. What to do is in docs/PLA
 
 # Status
 
-> # >>> WE ARE HERE: PHASE 3 (Pi setup + serial ports) <<<
+> # >>> WE ARE HERE: PHASE 4 (Sensors live) <<<
 >
-> - **Ari:** ARI-2 scripts are done and ran on the Pi: it boots straight into the radar (sim) full screen, both
->   UART devices exist (`/dev/ttyAMA0`, `/dev/ttyAMA3`). Left in Phase 3: the two loopback tests (jumpers only, no
->   sensors needed) and the fps reading. Then ARI-3 the moment EE has the LD2450 wired.
-> - **Alex:** ALEX-1 is done (on `main`). ALEX-2 waits for the C1001 to be wired. ALEX-4 (command dashboard + sitrep)
->   needs no hardware and can start now; ALEX-3 (replay) needs the Phase 4 recordings to be useful.
-> - **EE:** loopback jumpers (Pi off: pin 8 to 10, pin 7 to 29), multimeter on the Pi's 5 V pins, then Phase 4 sensor
->   wiring (power-only voltage check first). Phase 1 and 2 EE boxes are still open in PLAYBOOK.
+> - **Ari:** Phase 3 done: both loopbacks PASS (`/dev/ttyAMA0` at 256000, `/dev/ttyAMA3` at 115200), 61 fps on the
+>   Pi, touch and 1 m readability checked on the real screen. Next: ARI-3 the moment EE has the LD2450 wired.
+> - **Alex:** ALEX-1 is done (on `main`). ALEX-2 starts when the C1001 is wired (same time as ARI-3, own UART).
+>   ALEX-4 (command dashboard + sitrep) needs no hardware; ALEX-3 (replay) needs the Phase 4 recordings.
+> - **EE:** Phase 4 sensor wiring, power-only voltage check first (TX must idle at 3.3 V). Still open: multimeter on
+>   the Pi's 5 V pins (Phase 3) and the Phase 1 and 2 EE boxes in PLAYBOOK.
 
 **Deadlines:** Devpost final Sun Oct 11 10:00 AM, commits stop 11:00 AM, repo public at submission.
 **Gate:** live dots + live vitals on the screen by 10 PM Sat; no new features after it.
@@ -24,8 +23,8 @@ Tick boxes live only in docs/PLAYBOOK.md; this table is the summary.
 | 0 | Done so far (T0 to T4) | All | Done | T0 to T4 |
 | 1 | Unbox + start the parsers | EE, Ari, Alex | Done except EE boxes | ARI-1 (done), ALEX-1 (done) |
 | 2 | Pi + screen boot | EE, Ari, Alex | Done except EE boxes + Alex SSH | Manual only |
-| 3 | Pi setup + serial ports | Ari, EE | In progress (loopback + fps left) | ARI-2 (scripts done) |
-| 4 | Sensors live | EE, Ari, Alex | Not started | ARI-3, ALEX-2 |
+| 3 | Pi setup + serial ports | Ari, EE | Done except multimeter | ARI-2 (done) |
+| 4 | Sensors live | EE, Ari, Alex | In progress | ARI-3, ALEX-2 |
 | 5 | Full app live: the gate (10 PM latest) | Ari, Alex, EE | Not started | ARI-4, ALEX-3, ALEX-4 |
 | 6 | Judge-proof | Ari, EE, Alex | Not started | ARI-5 |
 | 7 | Saturday night: rehearse + rough submit | All | Not started | Devpost draft (Claude chat), S7 buzzer (optional) |
@@ -45,8 +44,8 @@ into docs/hardware.md too.
 | 2 | Screen power on GPIO: GND pin | |
 | 2 | `vcgencmd measure_temp` idle (C) | 42.3 |
 | 2 | Pi IP (`hostname -I`) | 172.20.10.4 (hotspot), 10.4.245.18 (Velocity Wi-Fi) |
-| 3 | UI fps on the Pi (`/?fps=1`) | |
-| 3 | UART3 device name | `/dev/ttyAMA3` (from `ls`; loopback not run yet) |
+| 3 | UI fps on the Pi (`/?fps=1`) | 61 |
+| 3 | UART3 device name | `/dev/ttyAMA3` (loopback PASS at 115200) |
 | 3 | Pi 5 V pins (V, multimeter) | |
 | 4 | LD2450 5 V pin / GND pin | |
 | 4 | C1001 5 V pin / GND pin | |
@@ -64,13 +63,13 @@ into docs/hardware.md too.
 | 6 | Power bank 15 min: `vcgencmd get_throttled` | |
 | 6 | Power bank 15 min: temp (C) | |
 | extra (ARI-2) | Pi user@host / OS / session + compositor / Chromium binary | pulse@pulse.local / Debian 13 trixie arm64 / rpd-labwc, labwc 0.20.2 / `/usr/bin/chromium` 154 |
-| extra (ARI-2) | UART0 loopback (pin 8 to 10, 256000) / UART3 loopback (pin 7 to 29, 115200) | |
+| extra (ARI-2) | UART0 loopback (pin 8 to 10, 256000) / UART3 loopback (pin 7 to 29, 115200) | PASS / PASS (all 5 patterns) |
 | extra (ARI-3) | LD2450 x sign: holder's left is raw + or - (`X_SIGN`) | |
 | extra (ARI-3) | LD2450 speed sign: approaching is raw + or - (`SPEED_SIGN`) | |
 | extra (ARI-3) | LD2450 targets at once / frames/s / bad frames in 2 min | |
 | extra (ALEX-2) | C1001 working distance range (m) | |
 | extra (ARI-5) | Power bank model + capacity / `get_throttled` idle and under load / runtime | |
-| extra (ARI-5) | Touch on the 7": drawer scrolls / taps at screen edges | |
+| extra (ARI-5) | Touch on the 7": drawer scrolls / taps at screen edges | yes (finger drag) / yes (all four corners) |
 | extra (ARI-4) | Live: lock acquired in (s) / dot jitter / ids swap | |
 
 ## Notes
@@ -235,5 +234,12 @@ into docs/hardware.md too.
 - ARI-2: cursor hidden with a generated blank Xcursor theme (labwc has no hide-cursor option); the UI's own
   `cursor: none` on coarse pointers stays as well. Touch is `mouseEmulation="yes"` (Pi OS default): check drawer
   scrolling in ARI-5.
-- ARI-2: still to do: fps at `/?fps=1` on the Pi, both loopbacks (EE jumpers), Pi 5 V pins. 151 tests pass
-  (`test_kiosk.py` added: pidfile/flag handshake with a real child process, 403 for non-local exit).
+- ARI-2: 151 tests pass (`test_kiosk.py` added: pidfile/flag handshake with a real child process, 403 for
+  non-local exit).
+- Phase 3 on the Pi: loopback `/dev/ttyAMA0` at 256000 and `/dev/ttyAMA3` at 115200 both PASS, all 5 patterns
+  (jumpers placed and removed with the Pi off). `/?fps=1`: 61 fps. Still open: multimeter on the Pi's 5 V pins (EE).
+- ARI-5's touch and readability checks passed early (Phase 3, real 7" screen): all four corners register, range
+  buttons and dot taps work, the contacts drawer scrolls with a finger drag (so `mouseEmulation="yes"` +
+  `touch-action: none` is fine), and the vitals numbers read from about 1 m, so T3's 40 px / card 64 px stay as
+  they are. Phase 6's "vitals readable" box is ticked; the rest of ARI-5 (unplug, restart, reboot, power bank)
+  is still to do.
