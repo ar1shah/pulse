@@ -212,6 +212,9 @@ class FakeSensor:
                 if f.word == c1001.WORK_MODE_SET:
                     self.values[c1001.WORK_MODE_QUERY] = f.data       # the switch takes effect
                     continue
+                if f.word == c1001.REPORTING_MODE_SET:
+                    self.values[c1001.REPORTING_MODE_QUERY] = f.data
+                    self.values[c1001.REPORTING_MODE_SET] = f.data      # echoed back
                 if f.word == c1001.HP_LED_SET:
                     self.values[c1001.PING] = f.data
                 reply = self.values.get(f.word)
@@ -226,8 +229,9 @@ class FakeSensor:
         return [(w[2], w[3]) for w in self.written]
 
 
-def sensor(mode=2, led=1, presence=1, movement=1, breath=16, heart=72, **extra) -> FakeSensor:
+def sensor(mode=2, led=1, presence=1, movement=1, breath=16, heart=72, rmode=0, **extra) -> FakeSensor:
     values = {c1001.PING: bytes([led]), c1001.WORK_MODE_QUERY: bytes([mode]), c1001.HP_LED_SET: bytes([1]),
+              c1001.REPORTING_MODE_QUERY: bytes([rmode]),
               c1001.RESET: b"\x0f", c1001.PRESENCE: bytes([presence]), c1001.MOVEMENT: bytes([movement]),
               c1001.BREATH: bytes([breath]), c1001.HEART: bytes([heart])}
     values.update(extra)
@@ -266,6 +270,7 @@ def test_reader_init_already_in_sleep_mode_skips_switch_and_reset():
         words = fake.sent_words()
         assert words[:2] == [c1001.PING, c1001.WORK_MODE_QUERY]
         assert c1001.WORK_MODE_SET not in words and c1001.RESET not in words and c1001.HP_LED_SET not in words
+        assert c1001.REPORTING_MODE_QUERY in words and c1001.REPORTING_MODE_SET not in words
         assert {c1001.PRESENCE, c1001.MOVEMENT, c1001.BREATH, c1001.HEART} <= set(words)
         assert fake.written[0] == lib_frame(0x01, 0x83, b"\x0f")
     finally:
@@ -304,6 +309,55 @@ def test_reader_mode_switch_that_does_not_take_reconnects():
         wait_for(lambda: len(opens) >= 2)
         assert r.latest(time.time())[1] in ("offline", "warming")
         assert r.latest(time.time())[0] is None
+    finally:
+        r.stop()
+
+
+def test_reader_sets_realtime_reporting_only_when_needed():
+    fake = sensor(rmode=1)
+    r = make_reader(fake)
+    r.start()
+    try:
+        wait_for(lambda: r.latest(time.time())[1] == "ok")
+        assert lib_frame(0x84, 0x0F, b"\x00") in fake.written
+        words = fake.sent_words()
+        assert words.index(c1001.REPORTING_MODE_SET) < words.index(c1001.PRESENCE)
+        assert c1001.RESET not in words                     # not needed for this setting (measured)
+        assert fake.values[c1001.REPORTING_MODE_QUERY] == b"\x00"
+    finally:
+        r.stop()
+
+
+def test_reader_reporting_mode_switch_that_does_not_take_reconnects():
+    fake = sensor(rmode=1)
+    fake_write = fake.write
+
+    def stubborn(data: bytes) -> int:
+        if data[2:4] == b"\x84\x0f":
+            return len(data)
+        return fake_write(data)
+    fake.write = stubborn
+    opens = []
+    r = C1001Reader("/dev/fake", opener=lambda p, b: opens.append(1) or fake, retry_s=0.05)
+    r.start()
+    try:
+        wait_for(lambda: len(opens) >= 2)
+        assert r.latest(time.time())[0] is None
+    finally:
+        r.stop()
+
+
+def test_reader_drops_latched_vitals_when_nobody_is_there():
+    # reporting mode 1 kept answering 15 /min, 86 bpm after it stopped measuring: never pass that on
+    fake = sensor()
+    r = make_reader(fake)
+    r.start()
+    try:
+        wait_for(lambda: r.latest(time.time())[1] == "ok")
+        fake.values[c1001.PRESENCE] = b"\x00"              # breath and heart replies stay 16 / 72
+        wait_for(lambda: r.latest(time.time())[0].presence is False)
+        reading, _ = r.latest(time.time())
+        assert reading.breath_rpm is None and reading.heart_bpm is None
     finally:
         r.stop()
 
@@ -466,7 +520,7 @@ def test_describe_names_queries_and_pushes():
 def test_describe_multi_byte_values():
     assert c1001.describe(C1001Frame(0x80, 0x04, b"\x00\x6e")) == ("distance", 110)
     assert c1001.describe(C1001Frame(0x80, 0x84, b"\x01\x02")) == ("distance", 258)
-    assert c1001.describe(C1001Frame(0x80, 0x05, bytes.fromhex("ff9c 0064 0000"))) == ("position", (-100, 100, 0))
+    assert c1001.describe(C1001Frame(0x80, 0x05, bytes.fromhex("8064 0064 0000"))) == ("position", (-100, 100, 0))
 
 
 def test_describe_unknown_and_short_frames_never_raise():

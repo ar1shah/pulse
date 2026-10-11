@@ -32,6 +32,11 @@ RESET = (0x01, 0x02)            # sensorRet(): module reset, then 10 s before it
 WORK_MODE_QUERY = (0x02, 0xA8)
 WORK_MODE_SET = (0x02, 0x08)    # written raw, the library does not wait for a reply
 SLEEP_MODE = 0x02               # eSleepMode: presence + breathing + heart rate. 0x01 is fall mode.
+REPORTING_MODE_QUERY = (0x84, 0x8C)
+REPORTING_MODE_SET = (0x84, 0x0F)   # configSleep(eReportingmodeC, v); the sensor echoes v back
+REALTIME_REPORTING = 0x00       # measured (ALEX-2): in mode 1 (our sensor's default) breath and heart are only
+                                # computed while the firmware thinks someone is "in bed" (84 81), which a person
+                                # walking up never triggers; mode 0 locks in about 10 s. Persists on the sensor.
 PRESENCE = (0x80, 0x81)         # 0 nobody, 1 somebody
 MOVEMENT = (0x80, 0x82)         # 0 none, 1 still, 2 active
 BREATH = (0x81, 0x82)           # breaths per minute
@@ -148,14 +153,16 @@ def decode_vital(raw: int | None) -> int | None:
 
 def describe(frame: C1001Frame) -> tuple[str, int | tuple[int, ...] | None]:
     """(name, value) for any frame, for the probe and timeline tools. Distance is a big-endian u16, position
-    is three signed big-endian 16-bit values (x, y, z) when 6 bytes long (encoding not confirmed), the rest is data[0]. Unknown words are
+    is three big-endian 16-bit sign-magnitude values (x, y, z) when 6 bytes long (top bit = sign, seen as
+    0x800B for a person near the axis; which side is negative is not confirmed), the rest is data[0]. Unknown words are
     named by their hex and valued by data[0]. Never raises."""
     name = WORDS.get(frame.word, f"{frame.ctrl:02X} {frame.cmd:02X}")
     d = frame.data
     if name in _U16_NAMES and len(d) >= 2:
         return name, d[0] << 8 | d[1]
     if name == "position" and len(d) == 6:
-        return name, tuple(int.from_bytes(d[i:i + 2], "big", signed=True) for i in (0, 2, 4))
+        raw = [d[i] << 8 | d[i + 1] for i in (0, 2, 4)]
+        return name, tuple(-(v & 0x7FFF) if v & 0x8000 else v for v in raw)
     return name, frame.value()
 
 
@@ -247,7 +254,7 @@ class _Lost(Exception):
 
 class C1001Reader:
     """Talks to the C1001 in a daemon thread, the way DFRobot's library does: init (ping, sleep/vitals work mode,
-    HP LED, reset if anything changed), then poll presence, movement, breath and heart once a second.
+    real-time reporting mode, HP LED, reset if the work mode or LED changed), then poll presence, movement, breath and heart once a second.
     Reconnects every 2 s. `latest(now)` never raises: (reading | None, status) where status is
     "offline" (port closed or sensor not answering), "warming" (answering, no breath or heart value yet),
     "stale" (no reading for > 3 s) or "ok"."""
@@ -352,6 +359,18 @@ class C1001Reader:
             changed = True
         log.info("C1001 in sleep/vitals work mode")
 
+        rmode = self._request(REPORTING_MODE_QUERY, QUERY, INIT_TIMEOUT_S)
+        if rmode is None:
+            log.warning("C1001 reporting mode query (84 8C) got no reply; leaving it as it is")
+        elif rmode.value() != REALTIME_REPORTING:
+            # no reset needed: vitals started about 6 s after this write on the real sensor
+            log.info("C1001 reporting mode %s, switching to real-time (%d)", rmode.value(), REALTIME_REPORTING)
+            self._request(REPORTING_MODE_SET, bytes((REALTIME_REPORTING,)), INIT_TIMEOUT_S)
+            rmode = self._request(REPORTING_MODE_QUERY, QUERY, INIT_TIMEOUT_S)
+            if rmode is None or rmode.value() != REALTIME_REPORTING:
+                raise _Lost(f"reporting mode switch failed (reads {rmode.value() if rmode else 'nothing'})")
+        log.info("C1001 in real-time reporting mode")
+
         if led.value() != 1:
             if self._request(HP_LED_SET, b"\x01", INIT_TIMEOUT_S) is None:
                 log.warning("C1001 HP LED set got no reply")
@@ -389,7 +408,12 @@ class C1001Reader:
             return None
         values = [self._request(w, QUERY, POLL_TIMEOUT_S) for w in (MOVEMENT, BREATH, HEART)]
         movement, breath, heart = (f.value() if f else None for f in values)
-        return C1001Reading(t=self._clock(), presence=presence.value() == 1, moving=decode_moving(movement),
+        present = presence.value() == 1
+        if not present:
+            # the sensor can keep answering with its last breath/heart after it stopped measuring (seen in
+            # reporting mode 1): with nobody there, there is no reading
+            breath = heart = None
+        return C1001Reading(t=self._clock(), presence=present, moving=decode_moving(movement),
                             breath_rpm=decode_vital(breath), heart_bpm=decode_vital(heart))
 
     def _request(self, word: tuple[int, int], data: bytes, timeout_s: float) -> C1001Frame | None:
