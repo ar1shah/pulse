@@ -343,13 +343,13 @@ LD2450 (Ari, ARI-3):
 - [ ] 2-minute session recorded, 20 s sample committed
 
 C1001 (Alex, ALEX-2):
-- [ ] Frames arriving, checksum errors not climbing
-- [ ] Person still at 1 m, chest facing: presence after ______ s
-- [ ] Breathing after ______ s, value ______ /min
-- [ ] Heart rate after ______ s, value ______ bpm; phone/watch says ______ bpm
-- [ ] Person walks around: numbers go null (no fake values)
+- [x] Frames arriving, checksum errors not climbing (0 bad in every run)
+- [x] Person still at 1 m, chest facing: presence after 0 s (first poll)
+- [x] Breathing after ~7 s first value, ~13 s in range, value 22 to 23 /min once settled (needs reporting mode 0, ALEX-2)
+- [ ] Heart rate after ~10 s, value 64 to 85 bpm; phone/watch says ______ bpm
+- [ ] Person walks around: numbers go null (no fake values). ALEX-2: they go null when presence goes 0, not while it still sees you
 - [ ] Behind the panel: works? ______
-- [ ] 3-minute session recorded, 30 s sample committed
+- [ ] 3-minute session recorded, 30 s sample committed (150 s session + 30 s sample committed, ALEX-2)
 - [ ] **Sync:** both sensors give sane data, recordings committed
 
 If the C1001 is still silent after 1.5 hours: ESP32 fallback (docs/hardware.md).

@@ -8,7 +8,9 @@ Update this when a phase changes or a prompt finishes. What to do is in docs/PLA
 >   Pi, touch and 1 m readability checked on the real screen. ARI-4's code half is done against sim (gate
 >   hysteresis, crossing-proof association, still-survivor grace, heart range 45 to 150); its live tuning is still
 >   pending. Next: ARI-3 the moment EE has the LD2450 wired.
-> - **Alex:** ALEX-1 is done (on `main`). ALEX-2 starts when the C1001 is wired (same time as ARI-3, own UART).
+> - **Alex:** ALEX-1 is done. ALEX-2 (run by Ari) is mostly done: the walk-up bug is fixed (the reader puts the
+>   C1001 in real-time reporting mode; lock in ~10 s instead of never), sample recording committed. Still open from
+>   ALEX-2: operator test, cardboard, phone heart rate, live mode with the C1001 only (see the ALEX-2 notes).
 >   ALEX-4 (command dashboard + sitrep) needs no hardware; ALEX-3 (replay) needs the Phase 4 recordings.
 > - **EE:** Phase 4 sensor wiring, power-only voltage check first (TX must idle at 3.3 V). Still open: multimeter on
 >   the Pi's 5 V pins (Phase 3) and the Phase 1 and 2 EE boxes in PLAYBOOK.
@@ -50,18 +52,18 @@ into docs/hardware.md too.
 | 3 | UART3 device name | `/dev/ttyAMA3` (loopback PASS at 115200) |
 | 3 | Pi 5 V pins (V, multimeter) | |
 | 4 | LD2450 5 V pin / GND pin | |
-| 4 | C1001 5 V pin / GND pin | |
+| 4 | C1001 5 V pin / GND pin | 2 / 9 (TX to 29, RX to 7, `/dev/ttyAMA3`) |
 | 4 | LD2450 TX idle (V) | |
 | 4 | C1001 TX idle (V) | |
 | 4 | LD2450 max range walking away (m) | |
 | 4 | LD2450 left/right edge at 2 m (deg) | |
 | 4 | LD2450 behind the panel: detected? | |
 | 4 | LD2450 sitting still: drops out after (s, or never) | |
-| 4 | C1001 presence after (s) | |
-| 4 | C1001 breathing after (s) / value (/min) | |
-| 4 | C1001 heart rate after (s) / value (bpm) | |
-| 4 | Phone/watch heart rate at the same time (bpm) | |
-| 4 | C1001 behind the panel: works? | |
+| 4 | C1001 presence after (s) | 0 (first poll after sitting down; walk-up, mode 0) |
+| 4 | C1001 breathing after (s) / value (/min) | 7.3 to 7.6 first value, ~11 to 13 in the 10 to 25 range / ramps up, settles 22 to 23 after ~30 s |
+| 4 | C1001 heart rate after (s) / value (bpm) | 10.2 to 10.8 / 64 to 85 seated |
+| 4 | Phone/watch heart rate at the same time (bpm) | not done yet |
+| 4 | C1001 behind the panel: works? | not done yet |
 | 6 | Power bank 15 min: `vcgencmd get_throttled` | |
 | 6 | Power bank 15 min: temp (C) | |
 | extra (ARI-2) | Pi user@host / OS / session + compositor / Chromium binary | pulse@pulse.local / Debian 13 trixie arm64 / rpd-labwc, labwc 0.20.2 / `/usr/bin/chromium` 154 |
@@ -69,7 +71,9 @@ into docs/hardware.md too.
 | extra (ARI-3) | LD2450 x sign: holder's left is raw + or - (`X_SIGN`) | |
 | extra (ARI-3) | LD2450 speed sign: approaching is raw + or - (`SPEED_SIGN`) | |
 | extra (ARI-3) | LD2450 targets at once / frames/s / bad frames in 2 min | |
-| extra (ALEX-2) | C1001 working distance range (m) | |
+| extra (ALEX-2) | C1001 walk-up lock: reporting mode 1 (shipped) / mode 0 | never (125 s) / 10.2 and 10.8 s (2 runs) |
+| extra (ALEX-2) | C1001 query reply time mode 1 / mode 0 | ~105 ms / ~350 ms median, none lost |
+| extra (ALEX-2) | C1001 working distance range (m) | not measured; it reads vitals out to ~2 m, including from the operator side |
 | extra (ARI-5) | Power bank model + capacity / `get_throttled` idle and under load / runtime | |
 | extra (ARI-5) | Touch on the 7": drawer scrolls / taps at screen edges | yes (finger drag) / yes (all four corners) |
 | extra (ARI-4) | Live: lock acquired in (s) / dot jitter / ids swap | |
@@ -278,3 +282,25 @@ into docs/hardware.md too.
   LD2450's jitter; how far off the LD2450's first position is when it re-acquires a still person; the real distance
   at which it merges two people (the sim uses 0.45 m). Also fill the "Live: lock acquired in / dot jitter / ids
   swap" row above.
+- ALEX-2 (run by Ari, Sat evening; full write-up in docs/hardware.md "Measured on our sensor"): wired VIN pin 2, GND
+  9, TX 29, RX 7, `/dev/ttyAMA3`, mounted on the back of the screen. Walk-up bug found and fixed: the sensor shipped
+  in reporting mode 1, where vitals are only computed while its "in bed" state is 1, which walking up never sets
+  (and a reset doesn't either). `C1001Reader` now writes reporting mode 0 in init when it isn't 0 (no reset); walk-up
+  lock 10.8 s and 10.2 s. Mode 1 also kept answering frozen breath/heart after it stopped measuring, so readings
+  with presence 0 now never carry breath or heart. New tools: `tools/c1001_probe.py` (experiments, records what was
+  sent too) and `tools/c1001_timeline.py` (decode recordings). `c1001.describe()` names pushed frames. 187 tests.
+- ALEX-2 recordings: `recordings/c1001_session1.jsonl` (150 s, the server's reader; gitignored, on the Mac and the
+  Pi) and `recordings/sample_c1001.jsonl` (30 s seated slice, committed, for ALEX-3). Not the 3 minutes the prompt
+  asked for: walk-up run 2 doubled as the session.
+- ALEX-2 open (stopped when the LD2450 came back): (1) **operator test**: hold the device normally, nobody in front,
+  60 s with `tools/c1001_dump.py --record`. The sensor kept reading Ari from ~2 m on the operator side, so it may
+  read the holder at ~0.4 m and fusion would put the holder's vitals on the locked dot. If it does: foil-on-cardboard
+  shield between sensor and screen (insulated, never over the antenna face), retest, retest seated at 1 m, and
+  propose a fusion cross-check (C1001 distance vs the locked dot's range; distance units still unclear). (2)
+  cardboard in front, seated at 1 m, plus a phone heart rate at the same time. (3) walking around: numbers don't
+  go null while the sensor still sees someone (only when presence goes 0); the box stays unticked. (4) mode 0 after
+  a power cycle (the reader sets it anyway). (5) live mode with the C1001 only: from the code, with no LD2450 there is
+  no dot, so no lock, so `vitals` has presence/moving but breath/heart stay null and the panel says "No lock"; not
+  checked on the screen yet, and `~/pulse/.env` still has `C1001_PORT=` blank and `PULSE_SOURCE=sim`. (6) breath
+  ramps for ~25 s after a lock (5, 8, 11 ... 22): fusion shows those as real numbers; maybe hold "settling" until
+  breath stops climbing. Ask before changing fusion.

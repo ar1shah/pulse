@@ -25,7 +25,7 @@ Sensor TX goes to Pi RX. Sensor RX goes to Pi TX.
 
 | Wire | LD2450 | C1001 |
 | --- | --- | --- |
-| 5 V | Pin 2 | Pin 4 |
+| 5 V | Pin 2 | Pin 2 (as wired, ALEX-2) |
 | GND | Pin 6 | Pin 9 |
 | Sensor TX to Pi RX | Pin 10 (GPIO15, UART0 RX) | Pin 29 (GPIO5, UART3 RX) |
 | Sensor RX to Pi TX | Pin 8 (GPIO14, UART0 TX) | Pin 7 (GPIO4, UART3 TX) |
@@ -178,6 +178,8 @@ are counted (`reader.unsolicited`, shown by the dump tool) so we learn on Saturd
 | `80 82` | `0F` | movement: 0 none, 1 still, 2 active | [L148-L153](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L148-L153) |
 | `81 82` | `0F` | breathing value (/min) | [getBreatheValue L194-L203](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L194-L203) |
 | `85 82` | `0F` | heart rate (bpm) | [getHeartRate L172-L181](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L172-L181) |
+| `84 8C` | `0F` | reporting mode (ours shipped as 1; we use 0, see "Measured" below) | `smSleepData(eReportingmode)` |
+| `84 0F` | mode | sets the reporting mode; the sensor echoes the value back | `configSleep(eReportingmodeC, v)` |
 
 Also in the library, not used by us: `80 83` body movement 0 to 100, `80 84` distance (2 bytes), `81 81` breathing
 state (1 normal, 2 fast, 3 slow, 4 none), `84 8D` sleep composite (8 bytes incl. average breath/heart), fall-mode
@@ -204,6 +206,55 @@ What `C1001Reader` does differently, on purpose:
   ([L873-L891](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/DFRobot_HumanDetection.cpp#L873-L891)), which only exist because its loop re-reads a stale `data` variable. We also check the
   `54 43` tail, which the library writes but never checks.
 
+### Measured on our sensor (ALEX-2, Sat Oct 10)
+
+Recordings: `recordings/c1001_session1.jsonl` (150 s, the server's reader: walk-up, 60 s seated, leave) and the
+30 s slice `recordings/sample_c1001.jsonl` (seated, breath 18 to 23, heart 77 to 82). Probe runs `alex2_*.jsonl` are
+on the Pi. Decode any of them with `tools/c1001_timeline.py` (per second around the arrival, or `--summary`).
+
+**The walk-up problem was the reporting mode.** In reporting mode 1 (what `84 8C` read on our sensor) the firmware
+only computes breath and heart while its own "in bed" state (`84 81`) is 1:
+- Already in front when the sensor powered up: in-bed 1, vitals pushed every ~3 s. Moved to ~2 m: in-bed stayed 1
+  for ~30 s, then it pushed in-bed 0 and stopped pushing everything (vitals, distance, position).
+- Walked up after power-up: presence at once, in-bed stayed 0 for all 125 s seated, no breath or heart ever.
+- A module reset (`01 02`) while seated didn't flip it either (95 s, in-bed 0).
+- **And in mode 1 the breath/heart queries kept answering the last values (15 /min, 86 bpm) after it stopped
+  measuring.** Passed through, that would be fake vitals. The reader now reports no breath/heart while presence is 0.
+
+**Reporting mode 0 fixes it.** `84 0F 00`: vitals 6 s later while seated, in-bed still 0. Walk-ups in mode 0:
+
+| Run | Tool | First breath | First heart | Breath in fusion's 10 to 25 |
+| --- | --- | --- | --- | --- |
+| 1 | probe | 7.6 s | 10.8 s | ~11 s |
+| 2 | dump tool (the server's reader) | 7.3 s | 10.2 s | ~13 s |
+
+Times are from presence no -> yes. Two runs, not three (the third was dropped for time). `C1001Reader._init`
+queries `84 8C` and writes 0 only if it differs, then verifies (no reset needed). Checked on the sensor: it read
+1, wrote 0, read back 0.
+
+Other things we measured:
+- **Settings persist across a power cycle**: after a Pi reboot the sensor still read work mode 2, reporting mode 1,
+  HP LED on (all set before the reboot). Mode 0 surviving a power cycle is not checked yet; the reader sets it
+  either way.
+- **Breath ramps.** In mode 0 the first breath values start low (5, 7, 8) and climb ~1 /min every 3 s to the
+  real rate (22 to 23 after ~30 s). Heart is plausible from its first value. So the first ~25 s of breath is the
+  firmware converging, not the person's rate.
+- **Query replies are slower in mode 0**: median ~350 ms (max 1.1 s) vs ~105 ms in mode 1, none lost. One
+  4-query poll round takes ~1.5 s, inside the reader's 3 s stale limit.
+- **It reads people outside the vitals zone and from the operator side.** With Ari ~2 m away on the operator side
+  (behind the device), it kept presence 1, a distance of 131 to 178 and fresh breath 12 to 16 / heart 90 to 124. In
+  mode 0 the numbers did NOT go null quickly when Ari moved away; they went null only when presence went 0.
+  Not yet tested: the real handheld case (operator ~0.4 m behind, nobody in front). See STATUS for the open test.
+- Empty room (before any of this): presence 0, breath/heart null, no phantom values. Frames: 0 bad in every run.
+- Pushed frames (cmd top bit clear = sent unasked): `80 01` presence, `80 02` movement, `80 03` body movement
+  (0 to 100), `80 04` distance, `80 05` position (3 x big-endian sign-magnitude: x, y, z), `81 02` breath,
+  `85 02` heart, `84 01` in-bed, `81 05` / `85 05` (mode 0 only, ~1 per 3 s, probably waveform), `07 07` (0/1,
+  not in the library), `01 01` (value 15, every ~60 s, looks like a heartbeat). After a reset it also pushes its
+  settings: `84 00` 1 (sleep monitoring on), `81 00` 1, `85 00` 1, `84 13` 0, `84 14` 0, `84 0C`, `84 0D`, `02 A2..A4`.
+- Distance (`80 04` / `80 84`) is not in metres we can trust: about 47 to 59 with Ari seated at ~1 m, 119 to 178 with
+  Ari at ~2 m. Monotonic, units unclear.
+- Work mode query `02 A8` = 2 and HP LED = 1 at every start, so the reader's mode switch and reset never ran.
+
 ### Code (ALEX-1)
 
 `pi/pulse/sensors/c1001.py`:
@@ -211,6 +262,10 @@ What `C1001Reader` does differently, on purpose:
   over 64 (a corrupted length can't stall it), counts `good` / `bad` / `bad_checksum` / `skipped_bytes`.
   `feed_with_raw` also returns each frame's bytes.
 - `build_frame`, `query`, `cmd_set_work_mode`, `cmd_hp_led`, `cmd_reset`, `decode_moving`, `decode_vital`.
+- ALEX-2: init also puts the sensor in real-time reporting mode (`84 0F 00`, only if `84 8C` isn't 0), and a
+  reading with presence 0 never carries breath or heart. `describe(frame)` / `is_push(frame)` name any frame.
+  `tools/c1001_probe.py` (poll + extra words + one-off sets + reset strategies, records what was sent too) and
+  `tools/c1001_timeline.py` (decode a recording) are the experiment tools.
 - `C1001Reader(port, baud=115200)`: `.start()`, `.stop()`, `.latest(now) -> (C1001Reading | None, status)`. Never
   raises. Status: `offline` (port not open, or the sensor hasn't answered the ping since it opened), `warming`
   (answering, but no breath or heart value seen yet since connecting; this includes the mode switch and reset
