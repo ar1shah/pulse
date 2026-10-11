@@ -302,7 +302,8 @@ into docs/hardware.md too.
   y and association unchanged. On for live, off for sim (`PULSE_XFILTER=1/0` forces). Same fault model, 40 runs
   at 0.4 m/s: wrong-way steps 133 -> 0, runs with a phantom/new id 33 -> 4. Cost: x lags ~0.3 m at 0.4 m/s.
   `LOG_RAW=1` logs raw slots vs shown dots to `recordings/xlog_*.csv`, `tools/plot_x.py` plots it. Contract rule 4
-  updated; /ws shape unchanged, `v` stays 1. 203 tests pass. Not yet checked on the Pi.
+  updated; /ws shape unchanged, `v` stays 1. 203 tests pass. Deployed to the Pi (live, filter on) and walked: good
+  enough for the demo. Kill switch: `PULSE_XFILTER=0` in the Pi's `.env`, then `systemctl --user restart pulse`.
 - ALEX-2 (run by Ari, Sat evening; full write-up in docs/hardware.md "Measured on our sensor"): wired VIN pin 2, GND
   9, TX 29, RX 7, `/dev/ttyAMA3`, mounted on the back of the screen. Walk-up bug found and fixed: the sensor shipped
   in reporting mode 1, where vitals are only computed while its "in bed" state is 1, which walking up never sets
