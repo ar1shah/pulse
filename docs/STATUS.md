@@ -5,7 +5,9 @@ Update this when a phase changes or a prompt finishes. What to do is in docs/PLA
 > # >>> WE ARE HERE: PHASE 4 (Sensors live) <<<
 >
 > - **Ari:** Phase 3 done: both loopbacks PASS (`/dev/ttyAMA0` at 256000, `/dev/ttyAMA3` at 115200), 61 fps on the
->   Pi, touch and 1 m readability checked on the real screen. Next: ARI-3 the moment EE has the LD2450 wired.
+>   Pi, touch and 1 m readability checked on the real screen. ARI-4's code half is done against sim (gate
+>   hysteresis, crossing-proof association, still-survivor grace, heart range 45 to 150); its live tuning is still
+>   pending. Next: ARI-3 the moment EE has the LD2450 wired.
 > - **Alex:** ALEX-1 is done (on `main`). ALEX-2 starts when the C1001 is wired (same time as ARI-3, own UART).
 >   ALEX-4 (command dashboard + sitrep) needs no hardware; ALEX-3 (replay) needs the Phase 4 recordings.
 > - **EE:** Phase 4 sensor wiring, power-only voltage check first (TX must idle at 3.3 V). Still open: multimeter on
@@ -25,7 +27,7 @@ Tick boxes live only in docs/PLAYBOOK.md; this table is the summary.
 | 2 | Pi + screen boot | EE, Ari, Alex | Done except EE boxes + Alex SSH | Manual only |
 | 3 | Pi setup + serial ports | Ari, EE | Done except multimeter | ARI-2 (done) |
 | 4 | Sensors live | EE, Ari, Alex | In progress | ARI-3, ALEX-2 |
-| 5 | Full app live: the gate (10 PM latest) | Ari, Alex, EE | Not started | ARI-4, ALEX-3, ALEX-4 |
+| 5 | Full app live: the gate (10 PM latest) | Ari, Alex, EE | ARI-4 code half done (sim); live part not started | ARI-4, ALEX-3, ALEX-4 |
 | 6 | Judge-proof | Ari, EE, Alex | Not started | ARI-5 |
 | 7 | Saturday night: rehearse + rough submit | All | Not started | Devpost draft (Claude chat), S7 buzzer (optional) |
 | 8 | Sunday | All | Not started | ARI-6 |
@@ -243,3 +245,36 @@ into docs/hardware.md too.
   `touch-action: none` is fine), and the vitals numbers read from about 1 m, so T3's 40 px / card 64 px stay as
   they are. Phase 6's "vitals readable" box is ticked; the rest of ARI-5 (unplug, restart, reboot, power bank)
   is still to do.
+- ARI-4 (code half, against sim; sensors were away being soldered): new `SIM_SCENARIO`s reproduce the T2 rough edges.
+  `cross`: two walkers pass 0.3 m apart at about 2 m, 0.9 m/s, stop 2 s at each end and walk back; when they are
+  closer than 0.45 m the sim LD2450 reports ONE target halfway between them. `edge`: one person at 12 deg, range
+  3.78 to 4.22 m over 12 s (built around the default 4 m gate). `still`: a sitter at (-100, 1100) the LD2450 sees
+  for 2 to 5 s then misses for 5 to 10 s, C1001 presence true throughout. `demo` and `random` are byte-identical
+  to before (checked 3000 ticks x 5 seeds each). Old fusion: cross swapped ids at every crossing, edge made a new
+  contact every cycle (10 in 2 min), still already held.
+- ARI-4 fusion changes (constants at the top of `fusion.py`, each with its why; rules in docs/data-contract.md):
+  gate hysteresis (new tracks start only inside the gate; a track lives to gate + `GATE_MARGIN_M` 0.3 m /
+  `GATE_MARGIN_DEG` 5 deg; in the margin it is kept but NOT in `targets` and can't lock, so `targets` never goes
+  past the gate and `v` stays 1); alpha-beta filter (`SMOOTH_ALPHA` 0.5, `VEL_BETA` 0.15); association against
+  predicted positions, a moving track coasts up to `COAST_S` 1 s, a still one never coasts; best one-to-one
+  matching (most pairs, then least total distance), never a pair beyond `ASSOCIATE_M` 0.6 m; still-survivor hold
+  counts C1001 presence for `PRESENCE_GRACE_S` 2 s after the last true reading (`vitals.presence` stays raw).
+- ARI-4 visible change in demo: the walker no longer leaves a hollow ghost dot at about 3.9 m for up to 3 s when
+  it walks out past 4 m (old smoothing lag held the track just inside the gate). The walker's dot is also up to
+  0.1 m closer to the truth (no smoothing lag). Sitter, lock, vitals, triage and contacts unchanged. Checked by eye
+  on the real sim server: lock, amber, vitals, walker crossing, no console errors.
+- ARI-4 heart range: fusion accepts 45 to 150 bpm (`HEART_MIN_BPM` / `HEART_MAX_BPM` in fusion.py; `HEART_RANGE`
+  in state.py and contract.js widened to match so the validator accepts it). The C1001 is rated accurate 60 to 100,
+  not clamped: values above 100 were seen on real hardware. Breath stays 10 to 25. Contract doc, CLAUDE.md,
+  hardware.md and demo.md reworded. `v` stays 1 by decision (the JSON shape is unchanged).
+- ARI-4 tests: `tests/test_scenarios.py` runs cross / edge / still through fusion for 120 s x 5 seeds at 10 Hz
+  fake time: no id swap in cross (judged only on ticks where the walkers are clearly apart), exactly one contact
+  and no dot past the gate in edge, the sitter never drops (and shows amber while the LD2450 has lost them) in
+  still, every snapshot passes `validate_snapshot`, runs reproducible. cross and edge fail on the old fusion.
+  `test_fusion.py` adds gate margin, no start in the margin, no lock in the margin, no jump past 0.6 m, a
+  merged-frame crossing, heart 45 to 150; the presence test now expects the hold to last 2 s past presence false.
+  180 tests pass.
+- ARI-4 still pending (live tuning, Phase 5 boxes left unticked): whether 0.6 m `ASSOCIATE_M` suits the real
+  LD2450's jitter; how far off the LD2450's first position is when it re-acquires a still person; the real distance
+  at which it merges two people (the sim uses 0.45 m). Also fill the "Live: lock acquired in / dot jitter / ids
+  swap" row above.

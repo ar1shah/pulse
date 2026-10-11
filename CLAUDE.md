@@ -23,7 +23,7 @@ architecture. But never break the demo path: sim mode must always run.
 - Hosyond 7" DSI capacitive touchscreen, **800x480**. The UI is designed for exactly this size.
 - **HLK-LD2450** 24 GHz radar: up to 3 targets, X/Y in mm + speed, ~6 m range, +/-60 deg FOV.
   UART0 `/dev/ttyAMA0` at **256000** baud, binary frames.
-- **DFRobot C1001** 60 GHz radar: presence, breathing (10 to 25 /min), heart rate (60 to 100 bpm)
+- **DFRobot C1001** 60 GHz radar: presence, breathing (10 to 25 /min), heart rate (rated accurate 60 to 100 bpm)
   at 0.4 to 1.5 m, chest facing the sensor. UART3 at **115200**. Gives NO positions.
 
 The LD2450 is the scout (where are people), the C1001 is the medic (is this one breathing).
@@ -115,7 +115,8 @@ PI_HOST=pulse@pulse.local scripts/pi_logs.sh
 ## Honesty rules (judges will poke at these)
 
 - Pulse sees through thin materials (drywall, wood, foam, cardboard), **not** concrete or rubble.
-- C1001 heart rate is clamped to 60 to 100 bpm. Triage uses movement + breathing, never HR thresholds.
+- C1001 heart rate is rated accurate 60 to 100 bpm (it does report outside that; fusion accepts 45 to 150).
+  Triage uses movement + breathing, never HR thresholds.
 - No medical or diagnostic wording anywhere in UI copy. See docs/demo.md for claims we can make.
 
 ## Gotchas

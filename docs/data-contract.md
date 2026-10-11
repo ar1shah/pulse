@@ -88,7 +88,7 @@ Change all three together, with tests, and bump `v`.
 | `vitals.presence` | bool | C1001 says a person is present. |
 | `vitals.moving` | bool \| null | C1001 movement state (null if unknown). |
 | `vitals.breath_rpm` | int \| null | Breaths/min, 10 to 25, else null. |
-| `vitals.heart_bpm` | int \| null | Beats/min, 60 to 100, else null. |
+| `vitals.heart_bpm` | int \| null | Beats/min, 45 to 150, else null. The C1001 is rated accurate 60 to 100 but reports outside it. |
 | `vitals.settled` | bool | True once both readings have been non-null for 3 s. |
 | `vitals.age_s` | float \| null | Seconds since the last C1001 vitals frame. |
 | `sensors.*` | `"ok"` \| `"warming"` \| `"stale"` \| `"offline"` \| `"sim"` | Per-sensor health. `stale` = no frame for > 1 s. |
@@ -106,19 +106,27 @@ Unknown or invalid messages are ignored and logged. Selection of a dot is UI-onl
 ## Fusion rules
 
 1. **Convert**: LD2450 target to `range_m`, `angle_deg`.
-2. **Gate**: drop targets with `range_m > gate.max_range_m` or `|angle_deg| > gate.max_angle_deg`.
-3. **Associate**: match detections to existing tracks by nearest neighbor within 0.6 m; unmatched
-   detections start new tracks with the lowest free id (1 to 3).
-4. **Smooth**: light exponential smoothing on position (alpha about 0.5).
+2. **Gate, with hysteresis**: a new track starts only from a detection inside the gate
+   (`range_m <= gate.max_range_m` and `|angle_deg| <= gate.max_angle_deg`). An existing track keeps taking
+   detections out to gate + 0.3 m / + 5 deg and is dropped once it is beyond that. A track between the gate and
+   gate + margin stays alive (same id, same contact) but is **not** in `targets` and cannot lock, so `targets`
+   never holds anything beyond the gate.
+3. **Associate**: each track predicts where it is now from its velocity (a moving track coasts on that
+   prediction for up to 1 s undetected; a still track does not coast). Detections are matched one to one to the
+   predicted positions: the matching with the most pairs, then the least total distance. A pair farther than
+   0.6 m is never made. Unmatched detections inside the gate start new tracks with the lowest free id (1 to 3).
+4. **Smooth**: alpha-beta filter on position and velocity (alpha 0.5, beta 0.15).
 5. **Moving**: `|speed_cms| >= 10` or the track moved more than 0.15 m in the last 1 s.
 6. **Hold**: a track not detected is kept for 3 s (`last_seen_s` counts up), then dropped. If the C1001
-   reports `presence` and the held track is inside the lock cone, keep holding it (still survivor case).
+   reported `presence` within the last 2 s and the held track is inside the lock cone, keep holding it (still
+   survivor case; the 2 s grace rides out one false or missed 1 Hz poll). `vitals.presence` is always the raw
+   latest reading.
 7. **Lock cone**: `|angle_deg| <= 20` and `0.4 <= range_m <= 1.5`. If several tracks qualify, lock the one
    closest to 0 deg. That track gets `locked: true` and `vitals.target_id`.
 8. **Triage**:
    - `green`: moving.
    - `amber`: not moving, locked, C1001 presence, and `breath_rpm` not null. Label: "breathing".
    - `gray`: anything else (not assessed yet).
-9. **Vitals sanity**: values outside 10 to 25 (breath) or 60 to 100 (heart), or 0, become null.
+9. **Vitals sanity**: values outside 10 to 25 (breath) or 45 to 150 (heart), or 0, become null.
 10. **Contacts**: one entry per track id per appearance; update `last_seen`, `triage`, and the last
     non-null vitals while locked.

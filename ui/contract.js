@@ -20,6 +20,6 @@ export const DEFAULT_GATE = {"max_range_m": 4.0, "max_angle_deg": 60};
 export const GATE_LIMITS = {"range_m": [1.0, 6.0], "angle_deg": [15, 60]};
 
 export const BREATH_RANGE = [10, 25];
-export const HEART_RANGE = [60, 100];
+export const HEART_RANGE = [45, 150];
 export const HOLD_S = 3.0;
 export const STALE_S = 1.0;

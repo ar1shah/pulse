@@ -31,7 +31,7 @@ def test_still_breathing_person_in_cone_is_locked_and_amber():
 
 
 def test_out_of_range_vitals_become_null_and_never_amber():
-    for breath, heart in [(30, 72), (0, 72), (16, 120), (16, 0), (None, None)]:
+    for breath, heart in [(30, 72), (0, 72), (16, 160), (16, 44), (16, 0), (None, None)]:
         f = Fusion("sim")
         s = step(f, 0.0, frame(0.0, (0, 1000, 0)), vitals(0.0, breath=breath, heart=heart))
         v = s["vitals"]
@@ -39,6 +39,13 @@ def test_out_of_range_vitals_become_null_and_never_amber():
         assert v["heart_bpm"] is (72 if heart == 72 else None)
         if breath != 16:
             assert s["targets"][0]["triage"] == "gray"
+
+
+@pytest.mark.parametrize("heart", [45, 59, 101, 120, 150])
+def test_heart_outside_the_rated_60_to_100_still_counts(heart):
+    f = Fusion("sim")
+    s = step(f, 0.0, frame(0.0, (0, 1000, 0)), vitals(0.0, heart=heart))
+    assert s["vitals"]["heart_bpm"] == heart and s["contacts"][0]["last_heart_bpm"] == heart
 
 
 def test_no_vitals_when_nobody_is_in_the_cone():
@@ -92,8 +99,13 @@ def test_still_survivor_in_cone_is_held_while_c1001_reports_presence():
         s = step(f, i * 0.1, frame(i * 0.1), vitals(i * 0.1))
     t = s["targets"][0]
     assert t["last_seen_s"] > 3.0 and t["locked"] and t["triage"] == "amber"
-    # presence gone: the track expires
+    # presence gone: one false poll is within the grace, so the survivor is still held
     s = step(f, 10.1, frame(10.1), vitals(10.1, presence=False, breath=None, heart=None))
+    assert len(s["targets"]) == 1 and s["targets"][0]["triage"] == "gray"   # held, but no longer amber
+    s = step(f, 11.5, frame(11.5), vitals(11.5, presence=False, breath=None, heart=None))
+    assert len(s["targets"]) == 1
+    # false for longer than PRESENCE_GRACE_S (2 s) after the last true reading at 9.9: the track expires
+    s = step(f, 12.0, frame(12.0), vitals(12.0, presence=False, breath=None, heart=None))
     assert s["targets"] == []
 
 
@@ -142,3 +154,57 @@ def test_sensor_status_is_passed_through_and_offline_gives_no_targets():
     s = step(f, 0.0, None, None, ld="offline", c1s="offline")
     assert s["source"] == "live" and s["sensors"] == {"ld2450": "offline", "c1001": "offline"}
     assert s["targets"] == [] and s["vitals"]["presence"] is False
+
+
+def test_gate_hysteresis_hides_but_keeps_the_track_in_the_margin():
+    f = Fusion("sim")
+    s = step(f, 0.0, frame(0.0, (0, 3900, 0)))
+    first = s["contacts"][0]["first_seen"]
+    s = step(f, 0.1, frame(0.1, (0, 4150, 0)))                 # in the margin (4.0 to 4.3 m): hidden, kept
+    s = step(f, 0.2, frame(0.2, (0, 4200, 0)))
+    assert s["targets"] == [] and len(s["contacts"]) == 1
+    s = step(f, 0.3, frame(0.3, (0, 3950, 0)))                 # back inside: the same id and contact
+    s = step(f, 0.4, frame(0.4, (0, 3900, 0)))
+    assert [t["id"] for t in s["targets"]] == [1]
+    assert len(s["contacts"]) == 1 and s["contacts"][0]["first_seen"] == first
+    for i in range(5, 12):                                      # walks out: 4.0 to 4.6 m, never shown again
+        s = step(f, i * 0.1, frame(i * 0.1, (0, 3500 + 100 * i, 0)))
+        if i > 5:
+            assert s["targets"] == []
+    s = step(f, 4.5, frame(4.5))                                # gone: dropped after the hold, never shown
+    assert s["targets"] == [] and f._tracks == {} and len(s["contacts"]) == 1
+
+
+def test_a_new_track_never_starts_in_the_gate_margin():
+    f = Fusion("sim")
+    s = step(f, 0.0, frame(0.0, (0, 4200, 0)))
+    assert s["targets"] == [] and s["contacts"] == [] and f._tracks == {}
+
+
+def test_hidden_track_in_the_margin_cannot_lock():
+    f = Fusion("sim")
+    assert f.set_gate(1.0)
+    s = step(f, 0.0, frame(0.0, (0, 950, 0)), vitals(0.0))
+    assert s["targets"][0]["locked"]
+    s = step(f, 0.1, frame(0.1, (0, 1250, 0)), vitals(0.1))   # 1.1 m smoothed: in the cone, past the 1 m gate
+    assert s["targets"] == [] and s["vitals"]["target_id"] is None and s["vitals"]["breath_rpm"] is None
+
+
+def test_a_track_never_jumps_further_than_associate_m():
+    f = Fusion("sim")
+    step(f, 0.0, frame(0.0, (-1000, 2000, 0)))
+    s = step(f, 0.1, frame(0.1, (0, 2000, 0)))                  # 1 m away: a new person, not a jump
+    assert sorted((t["id"], t["x_mm"], t["last_seen_s"]) for t in s["targets"]) == [(1, -1000, 0.1), (2, 0, 0.0)]
+
+
+def test_crossing_walkers_keep_their_ids_through_a_merged_frame():
+    f = Fusion("sim")
+    ids = {}
+    for i in range(20):                                         # A goes right at y 1850, B left at y 2150
+        t = i * 0.1
+        ax, bx = -1000 + 100 * i, 1000 - 100 * i
+        dets = [(ax, 1850, 0), (bx, 2150, 0)] if abs(ax - bx) > 400 else [((ax + bx) // 2, 2000, 0)]
+        s = step(f, t, frame(t, *dets))
+        if i < 5:
+            ids = {"A" if tg["y_mm"] < 2000 else "B": tg["id"] for tg in s["targets"]}
+    assert {"A" if tg["x_mm"] > 0 else "B": tg["id"] for tg in s["targets"]} == ids

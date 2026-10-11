@@ -40,5 +40,5 @@ for rescuers searching homes after a hurricane.
 ## Claims we must not make
 
 - "Works through rubble" or "through concrete."
-- Medical-grade vitals, diagnosis, or anything based on heart-rate thresholds (sensor clamps to 60 to 100).
+- Medical-grade vitals, diagnosis, or anything based on heart-rate thresholds (sensor is rated accurate 60 to 100 only).
 - Any statistic we haven't looked up and can cite.

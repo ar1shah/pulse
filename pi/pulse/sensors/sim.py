@@ -9,7 +9,7 @@ import logging
 import math
 import os
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from ..state import LOCK_CONE_DEG, LOCK_MAX_M, LOCK_MIN_M, SensorStatus
 from .c1001 import C1001Reading
@@ -17,7 +17,7 @@ from .ld2450 import Ld2450Frame, Ld2450Target
 
 log = logging.getLogger("pulse.sim")
 
-SCENARIOS = ("demo", "random")
+SCENARIOS = ("demo", "random", "cross", "edge", "still")
 
 FOV_DEG = 60.0              # LD2450 field of view, half angle
 LD_MAX_RANGE_MM = 6000
@@ -47,6 +47,24 @@ RAND_LEAVE_P = 0.10
 RAND_DROPOUT_PER_S = 0.05   # chance per second that a still person vanishes from the LD2450
 RAND_DROPOUT_S = (1.0, 2.5)
 MAX_STEP_S = 0.5
+
+# cross: two walkers pass each other shoulder to shoulder at about 2 m, stop at the ends, walk back
+CROSS_LANES_MM = (1850.0, 2150.0)   # lane y of walker A and B: 0.3 m apart when they pass
+CROSS_HALF_WIDTH_MM = 2400.0        # walk from x = -2.4 m to +2.4 m (about 50 deg, inside the default gate)
+CROSS_SPEED_MMS = 900.0
+CROSS_PAUSE_S = 2.0                 # standing at each end before turning round
+CROSS_MERGE_MM = 450.0              # closer than this, the LD2450 reports the two as one target between them
+
+# edge: one person drifting in and out across the default 4 m range gate
+EDGE_ANGLE_DEG = 12.0
+EDGE_RANGE_MM = 4000.0
+EDGE_DRIFT_MM = 220.0               # range swings 3.78 to 4.22 m (starts outside, at the far end)
+EDGE_PERIOD_S = 12.0
+
+# still: a sitter in the lock cone the LD2450 keeps losing while the C1001 still sees them
+STILL_SITTER_MM = (-100.0, 1100.0)
+STILL_SEEN_S = (2.0, 5.0)           # visible to the LD2450 this long ...
+STILL_DROPOUT_S = (5.0, 10.0)       # ... then missed for this long, repeat
 
 
 def _polar(x: float, y: float) -> tuple[float, float]:
@@ -102,6 +120,7 @@ class SimSource:
     _reroll_at: float = field(init=False, default=0.0, repr=False)
     _cone: _ConeState = field(init=False, default_factory=_ConeState, repr=False)
     _c_reading: C1001Reading | None = field(init=False, default=None, repr=False)
+    _toggle_at: float = field(init=False, default=0.0, repr=False)     # still: next LD2450 dropout
 
     def __post_init__(self) -> None:
         if self.scenario not in SCENARIOS:
@@ -128,7 +147,8 @@ class SimSource:
     def ld2450(self, now: float) -> tuple[Ld2450Frame | None, SensorStatus]:
         self._advance(now)
         seen: list[tuple[float, Ld2450Target]] = []
-        for p in self._people:
+        people = self._merge_close(self._people) if self.scenario == "cross" else self._people
+        for p in people:
             if not p.active or p.dropout_until > now:
                 continue
             rng_mm, ang = _polar(p.x, p.y)
@@ -171,8 +191,14 @@ class SimSource:
         self._last = now
         if self.scenario == "demo":
             self._advance_demo(now)
-        else:
+        elif self.scenario == "random":
             self._advance_random(now, dt)
+        elif self.scenario == "cross":
+            self._advance_cross(now)
+        elif self.scenario == "edge":
+            self._advance_edge(now)
+        else:
+            self._advance_still(now)
 
     # demo: one person sitting still in the lock cone + a walker crossing every 20 s
 
@@ -182,6 +208,15 @@ class SimSource:
             walker = self._new_person(0.0, DEMO_WALK_Y_MM[0])
             walker.active = False
             self._people = [sitter, walker]
+        elif self.scenario == "cross":
+            self._people = [self._new_person(0.0, y) for y in CROSS_LANES_MM]
+            self._advance_cross(now)
+        elif self.scenario == "edge":
+            self._people = [self._new_person(0.0, EDGE_RANGE_MM)]
+            self._advance_edge(now)
+        elif self.scenario == "still":
+            self._people = [self._new_person(*STILL_SITTER_MM)]
+            self._toggle_at = now + self._rng.uniform(*STILL_SEEN_S)
         else:
             self._want = self._rng.randint(1, 3)
             self._reroll_at = now + self._rng.uniform(20, 45)
@@ -209,6 +244,43 @@ class SimSource:
         walker.y = DEMO_WALK_Y_MM[0] + dy * u
         walker.vx = direction * DEMO_WALK_SPEED_MMS
         walker.vy = dy / walk_s
+
+    # cross, edge, still: the fusion rough edges from docs/STATUS.md (T2 notes), one scenario each
+
+    def _advance_cross(self, now: float) -> None:
+        walk_s = 2 * CROSS_HALF_WIDTH_MM / CROSS_SPEED_MMS
+        leg_s = walk_s + CROSS_PAUSE_S
+        leg, lt = divmod(now - self._t0, leg_s)
+        direction = 1.0 if int(leg) % 2 == 0 else -1.0     # A walks left to right first, B the other way
+        u = min(lt / walk_s, 1.0)
+        walking = lt < walk_s
+        for p, side in zip(self._people, (1.0, -1.0)):
+            p.x = side * direction * (2 * u - 1) * CROSS_HALF_WIDTH_MM
+            p.vx = side * direction * CROSS_SPEED_MMS if walking else 0.0
+            p.vy = 0.0
+
+    @staticmethod
+    def _merge_close(people: list[_Person]) -> list[_Person]:
+        """The LD2450 can't split two people this close: it reports one target between them."""
+        a, b = people
+        if math.hypot(a.x - b.x, a.y - b.y) >= CROSS_MERGE_MM:
+            return people
+        return [replace(a, x=(a.x + b.x) / 2, y=(a.y + b.y) / 2, vx=(a.vx + b.vx) / 2, vy=(a.vy + b.vy) / 2)]
+
+    def _advance_edge(self, now: float) -> None:
+        p = self._people[0]
+        w = math.tau / EDGE_PERIOD_S
+        r = EDGE_RANGE_MM + EDGE_DRIFT_MM * math.cos(w * (now - self._t0))
+        dr = -EDGE_DRIFT_MM * w * math.sin(w * (now - self._t0))      # mm/s, outward positive
+        a = math.radians(EDGE_ANGLE_DEG)
+        p.x, p.y = r * math.sin(a), r * math.cos(a)
+        p.vx, p.vy = dr * math.sin(a), dr * math.cos(a)
+
+    def _advance_still(self, now: float) -> None:
+        if now >= self._toggle_at:
+            p = self._people[0]
+            p.dropout_until = now + self._rng.uniform(*STILL_DROPOUT_S)
+            self._toggle_at = p.dropout_until + self._rng.uniform(*STILL_SEEN_S)
 
     # random: wandering people with waypoints, pauses, arrivals and departures
 

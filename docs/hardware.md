@@ -138,7 +138,7 @@ Source of truth: DFRobot's Arduino library [DFRobot_HumanDetection](https://gith
 (`python/raspberrypi/`), a looser copy of the same logic (no checksum check on replies); we ported the C++.
 The [SEN0623 wiki](https://wiki.dfrobot.com/SKU_SEN0623_C1001_mmWave_Human_Detection_Sensor) has specs only, no
 protocol: 5 V, max 100 mA, breathing and heart rate at 0.4 to 1.5 m with the chest facing the sensor, breathing 10 to
-25 /min, heart 60 to 100 bpm, presence to 11 m, 100 x 100 deg beam.
+25 /min, heart rated accurate 60 to 100 bpm (it does report outside that), presence to 11 m, 100 x 100 deg beam.
 
 UART 115200 8N1 ([basics.ino L28-L34](https://github.com/DFRobot/DFRobot_HumanDetection/blob/f98f64ea8bc29a9bb0fbb1624401ce8db126f966/examples/basics/basics.ino#L28-L34)).
 
@@ -216,7 +216,7 @@ What `C1001Reader` does differently, on purpose:
   (answering, but no breath or heart value seen yet since connecting; this includes the mode switch and reset
   waits), `stale` (no reading for > 3 s; the contract's 1 s is too tight for a 1 Hz poll), `ok`.
 - Reading values: presence = reply 1; moving = True for 2 (active), False for 1 (still), None for 0; breath and heart
-  pass through raw (fusion applies the 10 to 25 / 60 to 100 ranges), except 0 and 0xFF become None (no reading,
+  pass through raw (fusion applies the 10 to 25 / 45 to 150 ranges), except 0 and 0xFF become None (no reading,
   never invented).
 - `LiveSource` picks it up from env `C1001_PORT` (no edits to `sources.py`).
 
