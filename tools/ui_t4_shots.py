@@ -61,10 +61,6 @@ def main() -> int:
         s = wait_for(lambda s: any(pred(t) for t in s["targets"]), timeout, what)
         if not s:
             return None
-        page.wait_for_timeout(2100)                 # one sonar ping, so the dot is on screen
-        s = wait_for(lambda s: any(pred(t) for t in s["targets"]), timeout, what)
-        if not s:
-            return None
         t = next(t for t in s["targets"] if pred(t))
         x, y = dot_xy(s, t)
         page.touchscreen.tap(x, y)
