@@ -58,9 +58,11 @@ class Ld2450Target:
 
 @dataclass(frozen=True)
 class Ld2450Frame:
-    """One decoded frame: up to 3 targets (empty slots skipped), stamped with its arrival time."""
+    """One decoded frame: up to 3 targets (empty slots skipped), stamped with its arrival time.
+    `slots` keeps the sensor's slot order with None for empty ones (real frames only; for LOG_RAW)."""
     t: float
     targets: list[Ld2450Target] = field(default_factory=list)
+    slots: tuple[Ld2450Target | None, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -92,13 +94,8 @@ def decode_target(chunk: bytes) -> Ld2450Target | None:
 
 def decode_frame(frame: bytes, t: float) -> Ld2450Frame:
     """A complete, already validated 30-byte data frame."""
-    targets = []
-    for i in range(3):
-        start = len(DATA_HEADER) + i * TARGET_LEN
-        tgt = decode_target(frame[start:start + TARGET_LEN])
-        if tgt is not None:
-            targets.append(tgt)
-    return Ld2450Frame(t=t, targets=targets)
+    slots = tuple(decode_target(frame[len(DATA_HEADER) + i * TARGET_LEN:][:TARGET_LEN]) for i in range(3))
+    return Ld2450Frame(t=t, targets=[s for s in slots if s is not None], slots=slots)
 
 
 # ---- commands (verify against datasheet) ---------------------------------------------------------------------

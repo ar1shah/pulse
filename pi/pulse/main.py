@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import kiosk
 from .fusion import Fusion
+from .rawlog import RawLog
 from .sources import Source, make_source
 
 log = logging.getLogger("pulse.main")
@@ -43,6 +44,7 @@ class Pulse:
     def __init__(self, source: Source) -> None:
         self.source = source
         self.fusion = Fusion(source.name)
+        self.rawlog = RawLog.from_env()     # LOG_RAW=1: raw vs shown x to a CSV (tools/plot_x.py)
         self.latest: dict[str, Any] | None = None
         self.latest_json: str | None = None
         self._clients: set[asyncio.Queue[str]] = set()
@@ -51,13 +53,16 @@ class Pulse:
         now = time.time()
         ld_frame, ld_status = self.source.ld2450(now)
         c1_reading, c1_status = self.source.c1001(now)
-        snap = self.fusion.update(now, ld_frame, ld_status, c1_reading, c1_status).to_dict()
+        snapshot = self.fusion.update(now, ld_frame, ld_status, c1_reading, c1_status)
+        snap = snapshot.to_dict()
         self.latest = snap
         self.latest_json = json.dumps(snap)
         for q in self._clients:
             if q.full():
                 q.get_nowait()      # a slow client gets the newest snapshot, never a backlog
             q.put_nowait(self.latest_json)
+        if self.rawlog is not None:
+            self.rawlog.write(ld_frame, snapshot)
 
     async def run(self) -> None:
         loop = asyncio.get_running_loop()
