@@ -37,6 +37,26 @@ MOVEMENT = (0x80, 0x82)         # 0 none, 1 still, 2 active
 BREATH = (0x81, 0x82)           # breaths per minute
 HEART = (0x85, 0x82)            # beats per minute
 
+# Every word we know a name for, for recordings and the probe tools. Queries have the top bit of cmd set; the
+# sensor also pushes reports on its own with the same ctrl and the top bit clear (80 01 = pushed presence).
+# Words marked "seen" are not in the library: decoded from what our sensor pushed.
+WORDS: dict[tuple[int, int], str] = {
+    (0x01, 0x02): "reset", (0x01, 0x03): "hp led set", (0x01, 0x83): "hp led",
+    (0x02, 0x08): "work mode set", (0x02, 0xA8): "work mode",
+    (0x07, 0x07): "07 07 (seen)",
+    (0x80, 0x01): "presence", (0x80, 0x02): "movement", (0x80, 0x03): "body movement",
+    (0x80, 0x04): "distance", (0x80, 0x05): "position",
+    (0x80, 0x81): "presence", (0x80, 0x82): "movement", (0x80, 0x83): "body movement",
+    (0x80, 0x84): "distance", (0x80, 0x85): "position",
+    (0x81, 0x01): "breath state", (0x81, 0x02): "breath",
+    (0x81, 0x81): "breath state", (0x81, 0x82): "breath",
+    (0x84, 0x01): "in bed", (0x84, 0x02): "sleep state", (0x84, 0x0F): "reporting mode set",
+    (0x84, 0x81): "in bed", (0x84, 0x82): "sleep state", (0x84, 0x8C): "reporting mode",
+    (0x84, 0x8D): "sleep composite",
+    (0x85, 0x02): "heart", (0x85, 0x82): "heart",
+}
+_U16_NAMES = {"distance"}       # library: buf[6] << 8 | buf[7]
+
 # ---- reader ---------------------------------------------------------------------------------------------------
 DEFAULT_BAUD = 115200
 READ_TIMEOUT_S = 0.05
@@ -124,6 +144,25 @@ def decode_vital(raw: int | None) -> int | None:
     if raw is None or raw == 0 or raw == 0xFF:
         return None
     return raw
+
+
+def describe(frame: C1001Frame) -> tuple[str, int | tuple[int, ...] | None]:
+    """(name, value) for any frame, for the probe and timeline tools. Distance is a big-endian u16, position
+    is three signed big-endian 16-bit values (x, y, z) when 6 bytes long (encoding not confirmed), the rest is data[0]. Unknown words are
+    named by their hex and valued by data[0]. Never raises."""
+    name = WORDS.get(frame.word, f"{frame.ctrl:02X} {frame.cmd:02X}")
+    d = frame.data
+    if name in _U16_NAMES and len(d) >= 2:
+        return name, d[0] << 8 | d[1]
+    if name == "position" and len(d) == 6:
+        return name, tuple(int.from_bytes(d[i:i + 2], "big", signed=True) for i in (0, 2, 4))
+    return name, frame.value()
+
+
+def is_push(frame: C1001Frame) -> bool:
+    """cmd top bit clear: a report the sensor sent on its own, or the echo of one of our set commands
+    (reset 01 02, reporting mode 84 0F). Replies to queries have it set."""
+    return not frame.cmd & 0x80
 
 
 # ---- incremental parser ---------------------------------------------------------------------------------------

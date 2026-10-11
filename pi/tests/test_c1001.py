@@ -450,3 +450,31 @@ def test_live_source_uses_the_reader(monkeypatch):
         assert opened[0] == ("/dev/fake-c1001", 115200)
     finally:
         src.stop()
+
+
+# ---- describe (probe + timeline tools) ------------------------------------------------------------------------
+
+def test_describe_names_queries_and_pushes():
+    assert c1001.describe(C1001Frame(0x80, 0x81, b"\x01")) == ("presence", 1)
+    assert c1001.describe(C1001Frame(0x80, 0x01, b"\x00")) == ("presence", 0)
+    assert c1001.describe(C1001Frame(0x81, 0x02, b"\x12")) == ("breath", 18)
+    assert c1001.describe(C1001Frame(0x85, 0x82, b"\x3f")) == ("heart", 63)
+    assert c1001.describe(C1001Frame(0x84, 0x81, b"\x01")) == ("in bed", 1)
+    assert c1001.describe(C1001Frame(0x84, 0x8C, b"\x00")) == ("reporting mode", 0)
+
+
+def test_describe_multi_byte_values():
+    assert c1001.describe(C1001Frame(0x80, 0x04, b"\x00\x6e")) == ("distance", 110)
+    assert c1001.describe(C1001Frame(0x80, 0x84, b"\x01\x02")) == ("distance", 258)
+    assert c1001.describe(C1001Frame(0x80, 0x05, bytes.fromhex("ff9c 0064 0000"))) == ("position", (-100, 100, 0))
+
+
+def test_describe_unknown_and_short_frames_never_raise():
+    assert c1001.describe(C1001Frame(0x99, 0x42, b"\x07")) == ("99 42", 7)
+    assert c1001.describe(C1001Frame(0x80, 0x04, b"\x05")) == ("distance", 5)
+    assert c1001.describe(C1001Frame(0x80, 0x05, b"")) == ("position", None)
+
+
+def test_is_push():
+    assert c1001.is_push(C1001Frame(0x81, 0x02, b"\x10"))
+    assert not c1001.is_push(C1001Frame(0x81, 0x82, b"\x10"))
