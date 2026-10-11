@@ -290,7 +290,8 @@ into docs/hardware.md too.
   is unchanged, so `v` stays 1. Still open for ARI-4 once check 1 gives real noise numbers: lock hysteresis, and
   new-track confirmation (3 hits before a dot shows). `tools/ld2450_analyze.py` (per-slot spread vs what fusion
   shows, from a `--record` file) was meant to land with this but was not in the repo; add it with its doc lines
-  when found.
+  when found. Deployed and checked live on the Pi: noticeably steadier dots. Known-good point tagged
+  `steady-dots`: `git checkout steady-dots -- pi/pulse/fusion.py` to get back to it if later tuning makes it worse.
 - ALEX-2 (run by Ari, Sat evening; full write-up in docs/hardware.md "Measured on our sensor"): wired VIN pin 2, GND
   9, TX 29, RX 7, `/dev/ttyAMA3`, mounted on the back of the screen. Walk-up bug found and fixed: the sensor shipped
   in reporting mode 1, where vitals are only computed while its "in bed" state is 1, which walking up never sets
