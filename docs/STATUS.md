@@ -321,3 +321,5 @@ into docs/hardware.md too.
   `PING_PERIOD_MS`, `PING_TRAVEL_MS`, `LIT_FADE_MS`, `LIT_FLOOR`. (A first version also froze each dot's position
   between rings like real sonar; dropped, dots lagged the person.) Touch checks pass, screenshots refreshed, 61 fps
   headless. `tools/ui_screenshots.py` times out on "a held target" (waits on the sim's snapshots, not this change).
+- C1001 back on (Sun morning): `~/pulse/.env` on the Pi had `C1001_PORT=` blank, so live mode never opened it. Now
+  `C1001_PORT=/dev/ttyAMA3`; after a service restart /ws reports `ld2450: ok, c1001: ok`, presence true.
