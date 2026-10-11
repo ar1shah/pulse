@@ -67,7 +67,7 @@ Everything below works on a laptop with fake data.
 - **Server + sim mode:** FastAPI on :8000, WebSocket `/ws` at 10 Hz, `/api/snapshot`, `/debug` page. Sim scenarios
   `demo` (one sitter behind the wall + a walker) and `random`. Basic fusion (tracking, lock cone, triage, contacts).
   Data sources plug in through `pi/pulse/sources.py`; `live` was wired up in ARI-1, `replay` is still a stub.
-- **Radar UI:** flat dark 800x480 radar, sweep, dots by triage, held dots fade, vitals panel, NO SIGNAL overlay.
+- **Radar UI:** flat dark 800x480 radar, sonar ping ring (dots refresh on ping and fade), dots by triage, vitals panel, NO SIGNAL overlay.
 - **Interactions:** tap a dot for its card (range, bearing, status, vitals or "get within 1.5 m"), contacts drawer,
   2 / 4 / 6 m range buttons, hold the PULSE wordmark to reset.
 - 93 tests pass. Screenshots in `docs/screenshots/`.

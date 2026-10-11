@@ -1,7 +1,7 @@
 // Handheld radar renderer for the 800x480 kiosk. One canvas, requestAnimationFrame, no libraries.
 // Nothing in frame() allocates: colors are resolved once and the tracks are preallocated.
 // Layout and colors live in style.css (read once at startup); enums and the lock cone come from contract.js.
-import { CONTRACT_VERSION, TRIAGE, TRIAGE_LABELS, TARGET_IDS, LOCK_CONE, DEFAULT_GATE, HOLD_S } from "./contract.js";
+import { CONTRACT_VERSION, TRIAGE, TRIAGE_LABELS, TARGET_IDS, LOCK_CONE, DEFAULT_GATE } from "./contract.js";
 import { setText, setAttr, setVital } from "./fmt.js";
 import { initCard, cardUpdate, selectTarget, clearSelection, selectedId } from "./card.js";
 import { initDrawer, drawerUpdate, drawerOpen, closeDrawer } from "./drawer.js";
@@ -15,11 +15,14 @@ const RADIUS = 430;                 // px from the apex to the outer arc
 const FOV_DEG = 60;                 // LD2450 half angle
 const DEG = Math.PI / 180;
 
-const SWEEP_PASS_MS = 1500;         // one pass, edge to edge
+const PING_PERIOD_MS = 2000;        // one sonar ping every 2 s
+const PING_TRAVEL_MS = 1400;        // the ring goes apex -> outer arc, then quiet until the next ping
+const ECHO_FADE_MS = 1800;          // an echo goes bright -> floor just before the next ping refreshes it
+const ECHO_FLOOR = 0.15;            // echoes never fade below this while the track is alive
+const ECHO_FLOOR_LOCKED = 0.35;
+const BLOOM_MS = 450;               // halo that grows out of a dot when the ring hits it
+const BLOOM_R = 14;
 const INTERP_MS = 110;              // a little over one 10 Hz tick, so motion never stalls
-const LEAVE_MS = 300;               // fade when a track disappears from the snapshot
-const HELD_FLOOR = 0.3;             // held dots never fade below this (still survivors are kept alive)
-const HELD_FLOOR_LOCKED = 0.7;
 const DOT_R = 8;
 const LOCK_R = 15;
 const SEL_R = 22;                   // selection brackets
@@ -81,6 +84,7 @@ function makeTrack(id) {
     x: 0, y: 0,                              // current render position (mm)
     tri: 2, locked: false,
     lastSeen: 0, seenAt: 0,
+    echo: false, ex: 0, ey: 0, echoAt: 0, eTri: 2, eHeld: false,   // the last return the ping ring captured
   };
 }
 const tracks = TARGET_IDS.map(makeTrack);
@@ -199,6 +203,7 @@ function applySnapshot(s, now) {
     seenFlags[t.id - 1] = 1;
     if (!tr.active) {
       tr.active = true;
+      tr.echo = false;
       tr.fx = tr.tx = tr.x = t.x_mm;
       tr.fy = tr.ty = tr.y = t.y_mm;
     } else {
@@ -324,51 +329,86 @@ setInterval(() => {
 
 // ---- frame loop ----
 
-const sweepDeg = (t) => -halfDeg * Math.cos((Math.PI * t) / SWEEP_PASS_MS);
-
 let fpsEl = null;
 let fpsFrames = 0;
 let fpsSince = 0;
 
 let selId = 0;                      // set once per frame from the card
+let pingPhase = 0;                  // ms into the current ping
+let ringPrev = 0;                   // ring radius (px) last frame; echoes land when the ring passes a track
 
-function drawTrack(tr, ts) {
-  // alpha + leaving
-  let alpha = 1;
-  if (tr.lastSeen > 0) {
-    const held = tr.lastSeen + (ts - tr.seenAt) / 1000;
-    alpha = Math.max(1 - held / HOLD_S, tr.locked ? HELD_FLOOR_LOCKED : HELD_FLOOR);
-  }
-  if (tr.leaving) {
-    const k = 1 - (ts - tr.leaveAt) / LEAVE_MS;
-    if (k <= 0) {
-      tr.active = false;
-      tr.leaving = false;
-      tr.locked = false;
-      return;
-    }
-    alpha *= k;
-  }
-
-  // position: glide from the previous render position to the new snapshot
+// live position: glide from the previous render position to the new snapshot (tracked every frame, drawn only on echo)
+function updateTrack(tr, ts) {
   const u = Math.min((ts - tr.t0) / INTERP_MS, 1);
   tr.x = tr.fx + (tr.tx - tr.fx) * u;
   tr.y = tr.fy + (tr.ty - tr.fy) * u;
-  const sx = APEX_X + tr.x * pxPerMm;
-  const sy = APEX_Y - tr.y * pxPerMm;
-  const color = TRIAGE_COLORS[tr.tri];
+}
+
+function captureEcho(tr, ts) {
+  tr.echo = true;
+  tr.ex = tr.x;
+  tr.ey = tr.y;
+  tr.echoAt = ts;
+  tr.eTri = tr.tri;
+  tr.eHeld = tr.lastSeen > 0;
+}
+
+function drawRing(r) {
+  const fade = Math.min(1, (RADIUS - r) / (RADIUS * 0.25));   // dissolves over the last quarter
+  ctx.strokeStyle = C.sweep;
+  for (let k = 5; k >= 0; k--) {    // overlapping arcs make a soft tail behind the front, front drawn last
+    const rk = r - k * 4;
+    if (rk <= 0) continue;
+    ctx.globalAlpha = fade * (k === 0 ? 0.85 : 0.14 * (1 - k / 6));
+    ctx.lineWidth = k === 0 ? 2 : 5;
+    ctx.beginPath();
+    ctx.arc(APEX_X, APEX_Y, rk, cAng(-halfDeg), cAng(halfDeg));
+    ctx.stroke();
+  }
+}
+
+function drawTrack(tr, ts) {
+  const age = ts - tr.echoAt;
+  if (tr.leaving) {                 // no more echoes: the last one fades out, then the track is gone
+    if (!tr.echo || ts - Math.max(tr.echoAt, tr.leaveAt) > ECHO_FADE_MS) {
+      tr.active = false;
+      tr.leaving = false;
+      tr.locked = false;
+      tr.echo = false;
+      return;
+    }
+  }
+  if (!tr.echo) return;
+  let alpha = 1 - age / ECHO_FADE_MS;
+  if (!tr.leaving) alpha = Math.max(alpha, tr.locked ? ECHO_FLOOR_LOCKED : ECHO_FLOOR);
+  if (alpha <= 0) alpha = 0;
+
+  const sx = APEX_X + tr.ex * pxPerMm;
+  const sy = APEX_Y - tr.ey * pxPerMm;
+  const color = TRIAGE_COLORS[tr.eTri];
 
   ctx.globalAlpha = alpha;
   ctx.fillStyle = color;
   ctx.strokeStyle = color;
   ctx.beginPath();
   ctx.arc(sx, sy, DOT_R, 0, Math.PI * 2);
-  if (tr.lastSeen > 0) {            // held: hollow ring
+  if (tr.eHeld) {                   // held: hollow ring
     ctx.lineWidth = 2;
     ctx.stroke();
   } else {
     ctx.fill();
   }
+  if (age < BLOOM_MS) {             // the ping just hit it
+    const b = age / BLOOM_MS;
+    ctx.globalAlpha = 0.8 * (1 - b);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(sx, sy, DOT_R + BLOOM_R * b, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // overlays stay solid so the operator never loses the locked / selected contact while its echo is dim
+  ctx.globalAlpha = tr.leaving ? alpha : 1;
   if (tr.locked) {                  // the one the vitals belong to
     ctx.strokeStyle = C.text;
     ctx.lineWidth = 1.5;
@@ -404,15 +444,26 @@ function frame(ts) {
   ctx.drawImage(gridCanvas, 0, 0, W, H);
   selId = selectedId();
 
-  // sweep: one thin line
-  const sweep = sweepDeg(ts);
-  ctx.strokeStyle = C.sweep;
-  ctx.lineWidth = 1.5;
-  ctx.globalAlpha = 0.35;
-  ctx.beginPath();
-  ctx.moveTo(APEX_X, APEX_Y);
-  ctx.lineTo(px(RADIUS, sweep), py(RADIUS, sweep));
-  ctx.stroke();
+  // sonar ping: a ring grows out from the device; a track's echo updates when the ring passes it
+  const phase = ts % PING_PERIOD_MS;
+  if (phase < pingPhase) ringPrev = 0;                  // a new ping started
+  pingPhase = phase;
+  const ring = phase < PING_TRAVEL_MS ? RADIUS * phase / PING_TRAVEL_MS : -1;
+
+  for (let i = 0; i < tracks.length; i++) {
+    const tr = tracks[i];
+    if (!tr.active) continue;
+    updateTrack(tr, ts);
+    if (tr.leaving || ring < 0) continue;
+    const d = Math.hypot(tr.x, tr.y) * pxPerMm;
+    if (d > ringPrev && d <= ring) captureEcho(tr, ts);
+  }
+  if (ring >= 0) {
+    ringPrev = ring;
+    drawRing(ring);
+  } else {
+    ringPrev = RADIUS;              // quiet gap: nothing left to cross until the next ping
+  }
 
   for (let i = 0; i < tracks.length; i++) {
     if (tracks[i].active) drawTrack(tracks[i], ts);
@@ -444,10 +495,12 @@ canvas.addEventListener("pointerdown", (ev) => {
   let bestD = HIT_R * HIT_R;
   for (let i = 0; i < tracks.length; i++) {
     const tr = tracks[i];
-    if (!tr.active || tr.leaving) continue;
-    const dx = APEX_X + tr.x * pxPerMm - x;
-    const dy = APEX_Y - tr.y * pxPerMm - y;
-    const d = dx * dx + dy * dy;
+    if (!tr.active || tr.leaving || !tr.echo) continue;
+    const ex = APEX_X + tr.ex * pxPerMm - x;          // the echo on screen, or where the contact is now
+    const ey = APEX_Y - tr.ey * pxPerMm - y;
+    const lx = APEX_X + tr.x * pxPerMm - x;
+    const ly = APEX_Y - tr.y * pxPerMm - y;
+    const d = Math.min(ex * ex + ey * ey, lx * lx + ly * ly);
     if (d <= bestD) {
       best = tr;
       bestD = d;
@@ -488,7 +541,7 @@ if (new URLSearchParams(location.search).get("fps") === "1") {
   stage.appendChild(fpsEl);
 }
 
-initCard({ dotX: (id) => { const tr = tracks[id - 1]; return tr && tr.active ? APEX_X + tr.x * pxPerMm : null; } });
+initCard({ dotX: (id) => { const tr = tracks[id - 1]; return tr && tr.active && tr.echo ? APEX_X + tr.ex * pxPerMm : null; } });
 initDrawer();
 initControls({ send, onReset: clearSelection });
 

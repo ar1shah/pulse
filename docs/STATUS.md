@@ -314,3 +314,12 @@ into docs/hardware.md too.
   checked on the screen yet, and `~/pulse/.env` still has `C1001_PORT=` blank and `PULSE_SOURCE=sim`. (6) breath
   ramps for ~25 s after a lock (5, 8, 11 ... 22): fusion shows those as real numbers; maybe hold "settling" until
   breath stops climbing. Ask before changing fusion.
+- Sonar ping radar (Sun morning, `ui/radar.js` only, post-gate polish): the side-to-side sweep line is gone. A ring
+  pulses out from the device every 2 s (1.4 s out, then quiet). A dot only updates when the ring passes it: it lands
+  bright with a short halo at the position the contact had at that moment, then fades to a 15% floor (35% if locked)
+  until the next ping. A new contact shows nothing until the ring reaches it; a contact that leaves just fades out.
+  Lock ring and selection brackets stay solid at the echo position. Taps hit either the echo or the contact's live
+  position. Knobs at the top of radar.js: `PING_PERIOD_MS`, `PING_TRAVEL_MS`, `ECHO_FADE_MS`, `ECHO_FLOOR`.
+  `tools/ui_t4_shots.py` now waits one ping before tapping a dot; all checks pass, screenshots refreshed, 61 fps
+  headless. Not yet seen on the 7" from 1 m: if the floor is too faint there, raise `ECHO_FLOOR`.
+  `tools/ui_screenshots.py` timed out on "a held target" (waits on the sim's snapshots, so not this change).
