@@ -282,6 +282,15 @@ into docs/hardware.md too.
   LD2450's jitter; how far off the LD2450's first position is when it re-acquires a still person; the real distance
   at which it merges two people (the sim uses 0.45 m). Also fill the "Live: lock acquired in / dot jitter / ids
   swap" row above.
+- ARI-4a (noise tuning from the live LD2450 test, no new features): still people wandered, got flagged moving and
+  spawned phantom second tracks. A still person with ~15 cm of x jitter run through Fusion confirmed the 0.15 m
+  moving threshold sat inside the sensor noise, so the tracker coasted on noise. `SMOOTH_ALPHA` 0.5 -> 0.3,
+  `MOVING_DIST_M` 0.15 -> 0.25 (`VEL_BETA` stays 0.15: 0 breaks the crossing-walker id tests). In sim: phantom
+  tracks 1.40 -> 1.13 per still person, dot swing ~500 -> ~370 mm. Contract rules 4 and 5 updated; the /ws shape
+  is unchanged, so `v` stays 1. Still open for ARI-4 once check 1 gives real noise numbers: lock hysteresis, and
+  new-track confirmation (3 hits before a dot shows). `tools/ld2450_analyze.py` (per-slot spread vs what fusion
+  shows, from a `--record` file) was meant to land with this but was not in the repo; add it with its doc lines
+  when found.
 - ALEX-2 (run by Ari, Sat evening; full write-up in docs/hardware.md "Measured on our sensor"): wired VIN pin 2, GND
   9, TX 29, RX 7, `/dev/ttyAMA3`, mounted on the back of the screen. Walk-up bug found and fixed: the sensor shipped
   in reporting mode 1, where vitals are only computed while its "in bed" state is 1, which walking up never sets

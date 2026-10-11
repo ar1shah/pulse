@@ -115,8 +115,8 @@ Unknown or invalid messages are ignored and logged. Selection of a dot is UI-onl
    prediction for up to 1 s undetected; a still track does not coast). Detections are matched one to one to the
    predicted positions: the matching with the most pairs, then the least total distance. A pair farther than
    0.6 m is never made. Unmatched detections inside the gate start new tracks with the lowest free id (1 to 3).
-4. **Smooth**: alpha-beta filter on position and velocity (alpha 0.5, beta 0.15).
-5. **Moving**: `|speed_cms| >= 10` or the track moved more than 0.15 m in the last 1 s.
+4. **Smooth**: alpha-beta filter on position and velocity (alpha 0.3, beta 0.15).
+5. **Moving**: `|speed_cms| >= 10` or the track moved more than 0.25 m in the last 1 s.
 6. **Hold**: a track not detected is kept for 3 s (`last_seen_s` counts up), then dropped. If the C1001
    reported `presence` within the last 2 s and the held track is inside the lock cone, keep holding it (still
    survivor case; the 2 s grace rides out one false or missed 1 Hz poll). `vitals.presence` is always the raw

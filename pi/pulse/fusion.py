@@ -16,7 +16,7 @@ from .state import (BREATH_RANGE, GATE_ANGLE_LIMITS, GATE_RANGE_LIMITS, HOLD_S, 
                     Source, Target, Triage, Vitals)
 
 ASSOCIATE_M = 0.6           # max match distance from a track's predicted spot: a walker covers 0.15 m per tick
-SMOOTH_ALPHA = 0.5          # weight of the new detection in position smoothing
+SMOOTH_ALPHA = 0.3          # weight of the new detection in position smoothing (0.5 let live LD2450 noise through)
 VEL_BETA = 0.15             # weight of the residual in the velocity estimate (alpha-beta pair for 0.5 is ~0.17)
 COAST_S = 1.0               # a moving track's prediction runs on this long undetected (two people merging)
 GATE_MARGIN_M = 0.3         # a track lives to gate + this (less than a step); new tracks start inside the gate
@@ -25,7 +25,7 @@ PRESENCE_GRACE_S = 2.0      # C1001 presence holds a still survivor this long af
 HEART_MIN_BPM = 45          # accepted heart range: wider than the C1001's rated 60 to 100, which it does exceed
 HEART_MAX_BPM = 150
 MOVING_SPEED_CMS = 10       # |speed| at or above this means moving
-MOVING_DIST_M = 0.15        # ... or moved more than this over the last MOVING_WINDOW_S
+MOVING_DIST_M = 0.25        # ... or moved more than this over the last MOVING_WINDOW_S (0.15 sat inside sensor noise)
 MOVING_WINDOW_S = 1.0
 SETTLE_S = 3.0              # vitals.settled once breath and heart have both been non-null this long
 _UNUSABLE = ("stale", "offline")
